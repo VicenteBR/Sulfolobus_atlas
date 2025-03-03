@@ -191,6 +191,98 @@
     #igvContainer .igv-popover * {
       color: #000 !important;
     }
+    
+    /* ----------------------- Processing Site Motifs Tab Styles ----------------------- */
+    /* The motifs viewer is nested inside the "Processing Site Motifs" tab */
+    #motifsTab .motifs-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    #motifsTab .section {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #motifsTab .section-top, 
+    #motifsTab .section-bottom {
+      flex: 1;
+      padding: 15px;
+    }
+    #motifsTab .section-top {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #2e2e2e;
+    }
+    #motifsTab .svg-wrapper {
+      background: #ffffff;
+      border: 2px solid #ccc;
+      border-radius: 4px;
+      padding: 5px;
+      display: inline-block;
+    }
+    #motifsTab .svg-wrapper img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    #motifsTab .section-bottom {
+      background: #2e2e2e;
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid #333;
+    }
+    #motifsTab .section-bottom select {
+      margin-bottom: 10px;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+    #motifsTab .section-bottom select:hover {
+      background: #222;
+      border-color: #777;
+    }
+    #motifsTab .btn-container {
+      margin-bottom: 10px;
+      display: flex;
+      gap: 10px;
+    }
+    #motifsTab .btn-container button {
+      flex: 1;
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      cursor: pointer;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+    #motifsTab .btn-container button:hover {
+      background: #222;
+      border-color: #777;
+    }
+    #motifsTab .section-bottom pre {
+      flex: 1;
+      padding: 15px;
+      background: #1e1e1e;
+      border: 1px solid #555;
+      border-radius: 4px;
+      overflow: auto;
+      white-space: pre-wrap;
+      color: #e0e0e0;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -200,6 +292,7 @@
       <button id="tablesTabBtn">Expression Tables Viewer</button>
       <button id="pairsTabBtn">asRNA/mRNA pairs</button>
       <button id="genomeViewerTabBtn">Genome Viewer</button>
+      <button id="motifsTabBtn">Processing Site Motifs</button>
     </div>
     
     <!-- Viewer Tab -->
@@ -240,7 +333,7 @@
     <!-- asRNA/mRNA pairs Tab -->
     <div id="pairsTab" class="tab-content">
       <h2>asRNA/mRNA Pairs Explorer</h2>
-      <!-- The file upload inputs below are commented out since data is loaded automatically -->
+      <!-- File upload inputs are commented out since data is loaded automatically -->
       <!--
       <div class="upload-group">
         <label for="correlationFilePairs">Correlation File Upload (tab‑delimited):</label>
@@ -284,6 +377,77 @@
     <div id="genomeViewerTab" class="tab-content">
       <div id="igvContainer"></div>
     </div>
+    
+    <!-- Processing Site Motifs Tab -->
+    <div id="motifsTab" class="tab-content">
+      <!-- The motifs viewer is contained in its own grid container -->
+      <div class="motifs-container">
+        <!-- Section 1 -->
+        <div class="section">
+          <div class="section-top">
+            <div class="svg-wrapper">
+              <img src="svg/motif-1-weblogo.svg" alt="SVG 1">
+            </div>
+          </div>
+          <div class="section-bottom">
+            <select id="fastaSelect1"></select>
+            <div class="btn-container">
+              <button id="copyCoord1">Copy Coordinates</button>
+              <button id="copySeq1">Copy Sequence</button>
+            </div>
+            <pre id="sequenceDisplay1"></pre>
+          </div>
+        </div>
+        <!-- Section 2 -->
+        <div class="section">
+          <div class="section-top">
+            <div class="svg-wrapper">
+              <img src="svg/motif-2-weblogo.svg" alt="SVG 2">
+            </div>
+          </div>
+          <div class="section-bottom">
+            <select id="fastaSelect2"></select>
+            <div class="btn-container">
+              <button id="copyCoord2">Copy Coordinates</button>
+              <button id="copySeq2">Copy Sequence</button>
+            </div>
+            <pre id="sequenceDisplay2"></pre>
+          </div>
+        </div>
+        <!-- Section 3 -->
+        <div class="section">
+          <div class="section-top">
+            <div class="svg-wrapper">
+              <img src="svg/motif-3-weblogo.svg" alt="SVG 3">
+            </div>
+          </div>
+          <div class="section-bottom">
+            <select id="fastaSelect3"></select>
+            <div class="btn-container">
+              <button id="copyCoord3">Copy Coordinates</button>
+              <button id="copySeq3">Copy Sequence</button>
+            </div>
+            <pre id="sequenceDisplay3"></pre>
+          </div>
+        </div>
+        <!-- Section 4 -->
+        <div class="section">
+          <div class="section-top">
+            <div class="svg-wrapper">
+              <img src="svg/motif-4-weblogo.svg" alt="SVG 4">
+            </div>
+          </div>
+          <div class="section-bottom">
+            <select id="fastaSelect4"></select>
+            <div class="btn-container">
+              <button id="copyCoord4">Copy Coordinates</button>
+              <button id="copySeq4">Copy Sequence</button>
+            </div>
+            <pre id="sequenceDisplay4"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   
   <!-- IGV.js script for Genome Viewer -->
@@ -294,20 +458,24 @@
     const tablesTabBtn = document.getElementById('tablesTabBtn');
     const pairsTabBtn = document.getElementById('pairsTabBtn');
     const genomeViewerTabBtn = document.getElementById('genomeViewerTabBtn');
+    const motifsTabBtn = document.getElementById('motifsTabBtn');
     const viewerTab = document.getElementById('viewerTab');
     const tablesTab = document.getElementById('tablesTab');
     const pairsTab = document.getElementById('pairsTab');
     const genomeViewerTab = document.getElementById('genomeViewerTab');
+    const motifsTab = document.getElementById('motifsTab');
     
     function clearActiveTabs() {
       viewerTab.classList.remove('active');
       tablesTab.classList.remove('active');
       pairsTab.classList.remove('active');
       genomeViewerTab.classList.remove('active');
+      motifsTab.classList.remove('active');
       viewerTabBtn.classList.remove('active');
       tablesTabBtn.classList.remove('active');
       pairsTabBtn.classList.remove('active');
       genomeViewerTabBtn.classList.remove('active');
+      motifsTabBtn.classList.remove('active');
     }
     
     viewerTabBtn.addEventListener('click', function() {
@@ -333,91 +501,96 @@
       // Initialize IGV browser if not already created.
       if (!window.igvBrowser) {
         const igvOptions = {
-      genome: {
-        id: "Sacidocaldarius",
-        fastaURL: "sequences/Sacidocaldarius-genome.fa"
-      },
-      locus: "NC_007181.1:1-20000",
-      showChromosomeWidget: false,
-      showCenterGuide: false,
-      trackSpacing: 10,
-      tracks: [
-        {
-          name: "Genes (Curated)",
-          url: "gffs/Sacidocaldarius-2024-curated-coding.gff",
-          format: "gff3",
-          color: "#81d4fa",
-          displayMode: "EXPANDED",
-          height: 100,
-          filterTypes: ['CDS']
-        },
-        {
-          name: "smAP1 (Interaction)",
-          url: "gffs/smAP1_sig.gff",
-          format: "gff3",
-          color: "#ffd54f",
-          displayMode: "COLLAPSED",
-          height: 40
-        },
-        {
-          name: "smAP2 (Interaction)",
-          url: "gffs/smAP2_sig.gff",
-          format: "gff3",
-          color: "#ffd54f",
-          displayMode: "COLLAPSED",
-          height: 40
-        },
-        {
-          name: "PS Motif-1",
-          url: "gffs/MEME-1.gff",
-          format: "gff3",
-          color: "#ffb74d",
-          displayMode: "COLLAPSED",
-          height: 40,
-          nameField: "Motif"
-        },
-        {
-          name: "PS Motif-2",
-          url: "gffs/MEME-2.gff",
-          format: "gff3",
-          color: "#ffb74d",
-          displayMode: "COLLAPSED",
-          height: 40,
-          nameField: "Motif"
-        },
-        {
-          name: "PS Motif-3",
-          url: "gffs/MEME-3.gff",
-          format: "gff3",
-          color: "#ffb74d",
-          displayMode: "COLLAPSED",
-          height: 40,
-          nameField: "Motif"
-        },
-        {
-          name: "PS Motif-4",
-          url: "gffs/MEME-4.gff",
-          format: "gff3",
-          color: "#ffb74d",
-          displayMode: "COLLAPSED",
-          height: 40,
-          nameField: "Motif"
-        },
-        {
-          name: "Processing Sites",
-          url: "gffs/sig_ptss.gff",
-          format: "gff3",
-          color: "#ff8a65",
-          displayMode: "COLLAPSED",
-          height: 40
-        }
-      ]
-    };
+          genome: {
+            id: "Sacidocaldarius",
+            fastaURL: "sequences/Sacidocaldarius-genome.fa"
+          },
+          locus: "NC_007181.1:1-20000",
+          showChromosomeWidget: false,
+          showCenterGuide: false,
+          trackSpacing: 10,
+          tracks: [
+            {
+              name: "Genes (Curated)",
+              url: "gffs/Sacidocaldarius-2024-curated-coding.gff",
+              format: "gff3",
+              color: "#81d4fa",
+              displayMode: "EXPANDED",
+              height: 100,
+              filterTypes: ['CDS']
+            },
+            {
+              name: "smAP1 (Interaction)",
+              url: "gffs/smAP1_sig.gff",
+              format: "gff3",
+              color: "#ffd54f",
+              displayMode: "COLLAPSED",
+              height: 40
+            },
+            {
+              name: "smAP2 (Interaction)",
+              url: "gffs/smAP2_sig.gff",
+              format: "gff3",
+              color: "#ffd54f",
+              displayMode: "COLLAPSED",
+              height: 40
+            },
+            {
+              name: "PS Motif-1",
+              url: "gffs/MEME-1.gff",
+              format: "gff3",
+              color: "#ffb74d",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "PS Motif-2",
+              url: "gffs/MEME-2.gff",
+              format: "gff3",
+              color: "#ffb74d",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "PS Motif-3",
+              url: "gffs/MEME-3.gff",
+              format: "gff3",
+              color: "#ffb74d",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "PS Motif-4",
+              url: "gffs/MEME-4.gff",
+              format: "gff3",
+              color: "#ffb74d",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "Processing Sites",
+              url: "gffs/sig_ptss.gff",
+              format: "gff3",
+              color: "#ff8a65",
+              displayMode: "COLLAPSED",
+              height: 40
+            }
+          ]
+        };
         igv.createBrowser(document.getElementById("igvContainer"), igvOptions).then(function(browser) {
           window.igvBrowser = browser;
           console.log("IGV browser created");
         });
       }
+    });
+    motifsTabBtn.addEventListener('click', function() {
+      clearActiveTabs();
+      motifsTab.classList.add('active');
+      motifsTabBtn.classList.add('active');
     });
     
     /* -------------------- Viewer, Data Tables, and asRNA/mRNA Pairs code -------------------- */
@@ -994,6 +1167,96 @@
         (B < 255 ? (B > 255 ? 255 : B) : 255))
         .toString(16).slice(1);
     }
+    
+    /* -------------------- Processing Site Motifs (FASTA/SVG Viewer) Code -------------------- */
+    // Loads a FASTA file, parses it, populates a dropdown, and updates the sequence display.
+    async function loadFasta(file, selectId, displayId) {
+      try {
+        const response = await fetch(file);
+        const text = await response.text();
+        const sequences = parseFasta(text);
+        const select = document.getElementById(selectId);
+        // Populate the dropdown with header IDs.
+        for (let header in sequences) {
+          const option = document.createElement('option');
+          option.value = header;
+          option.textContent = header;
+          select.appendChild(option);
+        }
+        // Display the first sequence by default (if available).
+        if (select.value) {
+          document.getElementById(displayId).textContent = sequences[select.value];
+        }
+        // Update the display when a new header is selected.
+        select.addEventListener('change', function(){
+          document.getElementById(displayId).textContent = sequences[this.value];
+        });
+      } catch (error) {
+        console.error('Error loading FASTA file:', file, error);
+      }
+    }
+    
+    // Basic FASTA parser that returns an object mapping header IDs to sequences.
+    function parseFasta(text) {
+      const sequences = {};
+      let currentHeader = null;
+      const lines = text.split('\n');
+      lines.forEach(line => {
+        line = line.trim();
+        if (line.startsWith('>')) {
+          currentHeader = line.substring(1).split(/\s+/)[0];
+          sequences[currentHeader] = "";
+        } else if (currentHeader) {
+          sequences[currentHeader] += line;
+        }
+      });
+      return sequences;
+    }
+    
+    // Extract coordinates from a header (e.g. "Motif-1:NC_007181.1:1658568-1658589(-)" returns "1658568-1658589").
+    function extractCoordinates(header) {
+      const match = header.match(/:(\d+-\d+)/);
+      return match ? match[1] : "";
+    }
+    
+    // Register copy button event listeners for a given section number.
+    function registerCopyButtons(sectionNum) {
+      const select = document.getElementById('fastaSelect' + sectionNum);
+      const pre = document.getElementById('sequenceDisplay' + sectionNum);
+      const copyCoordBtn = document.getElementById('copyCoord' + sectionNum);
+      const copySeqBtn = document.getElementById('copySeq' + sectionNum);
+    
+      copyCoordBtn.addEventListener('click', () => {
+        const header = select.value;
+        const coords = extractCoordinates(header);
+        navigator.clipboard.writeText(coords).then(() => {
+          alert('Coordinates copied: ' + coords);
+        }).catch(err => {
+          console.error('Failed to copy coordinates', err);
+        });
+      });
+    
+      copySeqBtn.addEventListener('click', () => {
+        const sequence = pre.textContent;
+        navigator.clipboard.writeText(sequence).then(() => {
+          alert('Sequence copied.');
+        }).catch(err => {
+          console.error('Failed to copy sequence', err);
+        });
+      });
+    }
+    
+    // Initialize the Processing Site Motifs viewer when the DOM is ready.
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load FASTA files for each motif section.
+      loadFasta('sequences/MEME-1.fa', 'fastaSelect1', 'sequenceDisplay1');
+      loadFasta('sequences/MEME-2.fa', 'fastaSelect2', 'sequenceDisplay2');
+      loadFasta('sequences/MEME-3.fa', 'fastaSelect3', 'sequenceDisplay3');
+      loadFasta('sequences/MEME-4.fa', 'fastaSelect4', 'sequenceDisplay4');
+    
+      // Register copy buttons for each motif section.
+      [1, 2, 3, 4].forEach(num => registerCopyButtons(num));
+    });
   </script>
 </body>
 </html>
