@@ -2,15 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DESeq2 Differential Expression Viewer</title>
+  <title>S. acidocaldarius transcriptomic atlas (Brück et al, 2025)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Chart.js for plotting -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Chart.js BoxPlot Plugin -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-box-and-violin-plot@3.9.0/build/Chart.BoxPlot.js"></script>
   <!-- PapaParse for CSV/TSV parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <!-- IGV.js CSS for Genome Viewer -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/igv/dist/igv.css">
   <style>
+    /* Base styling */
     body {
       font-family: 'Helvetica Neue', Arial, sans-serif;
       background: #121212;
@@ -48,31 +49,13 @@
     .tab-bar button.active {
       background-color: #0072B2;
     }
-    /* Shared input and button styling */
-    input, button, select {
-      padding: 10px;
-      margin: 5px 0;
-      width: 100%;
-      border-radius: 4px;
-      border: 1px solid #444;
-      font-size: 16px;
-      background: #2e2e2e;
-      color: #e0e0e0;
+    .tab-content {
+      display: none;
     }
-    input::placeholder {
-      color: #aaa;
+    .tab-content.active {
+      display: block;
     }
-    button:hover {
-      background-color: #005a9c;
-    }
-    .gene-nav {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    .gene-nav button {
-      flex: 0 0 150px;
-    }
+    /* Viewer Tab styling */
     canvas {
       margin-top: 20px;
       background: transparent;
@@ -96,7 +79,7 @@
       height: 20px;
       border: 1px solid #fff;
     }
-    /* Data Tables Tab */
+    /* Data Tables styling */
     #tableList {
       margin-bottom: 20px;
     }
@@ -130,32 +113,7 @@
     #tableDisplay th {
       background-color: #2e2e2e;
     }
-    /* Filter Table Styling */
-    #filteredTableDiv {
-      margin-top: 20px;
-    }
-    #filteredTableDiv table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-    #filteredTableDiv th, #filteredTableDiv td {
-      border: 1px solid #555;
-      padding: 8px;
-      text-align: left;
-      cursor: pointer;
-    }
-    #filteredTableDiv th {
-      background-color: #2e2e2e;
-    }
-    /* Hide non-active tab */
-    .tab-content {
-      display: none;
-    }
-    .tab-content.active {
-      display: block;
-    }
-    /* asRNA/mRNA pairs tab specific styling */
+    /* asRNA/mRNA pairs styling */
     .upload-group {
       margin-bottom: 15px;
     }
@@ -193,17 +151,57 @@
     .significant {
       font-weight: bold;
     }
+    /* Genome Viewer Tab styling */
+    #igvContainer {
+      max-width: 1240px;
+      height: 860px;
+      margin: auto;
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      padding: 10px;
+    }
+    /* IGV dark theme overrides for Genome Viewer */
+    #igvContainer .igv-container { background-color: #585252 !important; }
+    #igvContainer .igv-track-label { color: #000 !important; }
+    #igvContainer .igv-track { border: 1px solid #000 !important; }
+    #igvContainer .igv-axis, 
+    #igvContainer .igv-popover-label,
+    #igvContainer .igv-popover-content { color: #000 !important; }
+    #igvContainer .igv-control-pane, 
+    #igvContainer .igv-menu-bar-container { background-color: #ffffff !important; }
+    #igvContainer .igv-locus-bar { background-color: #000 !important; }
+    #igvContainer .igv-locus-label, 
+    #igvContainer .igv-locus-input { background-color: #2e2e2e !important; color: #000 !important; }
+    #igvContainer .igv-icon, 
+    #igvContainer .igv-glyph-count,
+    #igvContainer .igv-zoom-handles path { fill: #000 !important; stroke: #000 !important; }
+    #igvContainer .igv-popover {
+      background-color: #000 !important;
+      border: 1px solid #000 !important;
+      border-radius: 6px !important;
+      color: #000 !important;
+    }
+    /* Ensure descendant text in track labels and popovers is black */
+    #igvContainer .igv-track-label,
+    #igvContainer .igv-track-label * {
+      color: #000 !important;
+    }
+    #igvContainer .igv-popover,
+    #igvContainer .igv-popover * {
+      color: #000 !important;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>DESeq2 Differential Expression Viewer</h1>
     <div class="tab-bar">
-      <button id="viewerTabBtn" class="active">Viewer</button>
-      <button id="tablesTabBtn">Data Tables</button>
+      <button id="viewerTabBtn" class="active">Expression Profiles</button>
+      <button id="tablesTabBtn">Expression Tables Viewer</button>
       <button id="pairsTabBtn">asRNA/mRNA pairs</button>
+      <button id="genomeViewerTabBtn">Genome Viewer</button>
     </div>
-
+    
     <!-- Viewer Tab -->
     <div id="viewerTab" class="tab-content active">
       <input type="file" id="fileInput" multiple>
@@ -227,7 +225,7 @@
         </div>
       </div>
     </div>
-
+    
     <!-- Data Tables Tab -->
     <div id="tablesTab" class="tab-content">
       <h2>Loaded Tables</h2>
@@ -238,11 +236,11 @@
         <!-- Complete table display for a selected file -->
       </div>
     </div>
-
+    
     <!-- asRNA/mRNA pairs Tab -->
     <div id="pairsTab" class="tab-content">
       <h2>asRNA/mRNA Pairs Explorer</h2>
-      <!-- File upload inputs are commented out since data is auto-loaded -->
+      <!-- The file upload inputs below are commented out since data is loaded automatically -->
       <!--
       <div class="upload-group">
         <label for="correlationFilePairs">Correlation File Upload (tab‑delimited):</label>
@@ -254,28 +252,15 @@
       </div>
       -->
       <p id="uploadStatusPairs" class="status-message"></p>
-      
       <!-- Gene Navigation -->
       <div class="gene-nav">
         <button id="prevGenePairs">Previous Gene</button>
         <select id="geneSelectPairs"></select>
         <button id="nextGenePairs">Next Gene</button>
       </div>
-      
-      <!-- Chart for asRNA/mRNA Pairs (Used for both bar chart and boxplot) -->
+      <!-- Chart for asRNA/mRNA Pairs -->
       <canvas id="pairsChartCanvas"></canvas>
-      
-      <!-- Filter Section: correlation threshold input and filter button -->
-      <div style="margin-top: 20px;">
-        <label for="correlationThreshold">Correlation Threshold:</label>
-        <input type="number" id="correlationThreshold" value="0.5" step="0.1">
-        <button id="filterButton">Filter Pairs</button>
-      </div>
-      
-      <!-- Filtered Table -->
-      <div id="filteredTableDiv"></div>
-      
-      <!-- Correlation Summary Table (Original) -->
+      <!-- Correlation Summary Table -->
       <div class="pairs-section">
         <h2>Correlation Summary</h2>
         <table class="pairs-table">
@@ -294,47 +279,153 @@
         </table>
       </div>
     </div>
+    
+    <!-- Genome Viewer Tab -->
+    <div id="genomeViewerTab" class="tab-content">
+      <div id="igvContainer"></div>
+    </div>
   </div>
-
+  
+  <!-- IGV.js script for Genome Viewer -->
+  <script src="https://cdn.jsdelivr.net/npm/igv/dist/igv.min.js"></script>
   <script>
     /* -------------------- Tab Switching -------------------- */
     const viewerTabBtn = document.getElementById('viewerTabBtn');
     const tablesTabBtn = document.getElementById('tablesTabBtn');
     const pairsTabBtn = document.getElementById('pairsTabBtn');
+    const genomeViewerTabBtn = document.getElementById('genomeViewerTabBtn');
     const viewerTab = document.getElementById('viewerTab');
     const tablesTab = document.getElementById('tablesTab');
     const pairsTab = document.getElementById('pairsTab');
-
-    viewerTabBtn.addEventListener('click', function() {
-      viewerTab.classList.add('active');
+    const genomeViewerTab = document.getElementById('genomeViewerTab');
+    
+    function clearActiveTabs() {
+      viewerTab.classList.remove('active');
       tablesTab.classList.remove('active');
       pairsTab.classList.remove('active');
-      viewerTabBtn.classList.add('active');
+      genomeViewerTab.classList.remove('active');
+      viewerTabBtn.classList.remove('active');
       tablesTabBtn.classList.remove('active');
       pairsTabBtn.classList.remove('active');
+      genomeViewerTabBtn.classList.remove('active');
+    }
+    
+    viewerTabBtn.addEventListener('click', function() {
+      clearActiveTabs();
+      viewerTab.classList.add('active');
+      viewerTabBtn.classList.add('active');
     });
     tablesTabBtn.addEventListener('click', function() {
+      clearActiveTabs();
       tablesTab.classList.add('active');
-      viewerTab.classList.remove('active');
-      pairsTab.classList.remove('active');
       tablesTabBtn.classList.add('active');
-      viewerTabBtn.classList.remove('active');
-      pairsTabBtn.classList.remove('active');
       updateTableList();
     });
     pairsTabBtn.addEventListener('click', function() {
+      clearActiveTabs();
       pairsTab.classList.add('active');
-      viewerTab.classList.remove('active');
-      tablesTab.classList.remove('active');
       pairsTabBtn.classList.add('active');
-      viewerTabBtn.classList.remove('active');
-      tablesTabBtn.classList.remove('active');
     });
-
-    /* -------------------- Viewer Tab Code -------------------- */
+    genomeViewerTabBtn.addEventListener('click', function() {
+      clearActiveTabs();
+      genomeViewerTab.classList.add('active');
+      genomeViewerTabBtn.classList.add('active');
+      // Initialize IGV browser if not already created.
+      if (!window.igvBrowser) {
+        const igvOptions = {
+      genome: {
+        id: "Sacidocaldarius",
+        fastaURL: "sequences/Sacidocaldarius-genome.fa"
+      },
+      locus: "NC_007181.1:1-20000",
+      showChromosomeWidget: false,
+      showCenterGuide: false,
+      trackSpacing: 10,
+      tracks: [
+        {
+          name: "Genes (Curated)",
+          url: "gffs/Sacidocaldarius-2024-curated-coding.gff",
+          format: "gff3",
+          color: "#81d4fa",
+          displayMode: "EXPANDED",
+          height: 100,
+          filterTypes: ['CDS']
+        },
+        {
+          name: "smAP1 (Interaction)",
+          url: "gffs/smAP1_sig.gff",
+          format: "gff3",
+          color: "#ffd54f",
+          displayMode: "COLLAPSED",
+          height: 40
+        },
+        {
+          name: "smAP2 (Interaction)",
+          url: "gffs/smAP2_sig.gff",
+          format: "gff3",
+          color: "#ffd54f",
+          displayMode: "COLLAPSED",
+          height: 40
+        },
+        {
+          name: "PS Motif-1",
+          url: "gffs/MEME-1.gff",
+          format: "gff3",
+          color: "#ffb74d",
+          displayMode: "COLLAPSED",
+          height: 40,
+          nameField: "Motif"
+        },
+        {
+          name: "PS Motif-2",
+          url: "gffs/MEME-2.gff",
+          format: "gff3",
+          color: "#ffb74d",
+          displayMode: "COLLAPSED",
+          height: 40,
+          nameField: "Motif"
+        },
+        {
+          name: "PS Motif-3",
+          url: "gffs/MEME-3.gff",
+          format: "gff3",
+          color: "#ffb74d",
+          displayMode: "COLLAPSED",
+          height: 40,
+          nameField: "Motif"
+        },
+        {
+          name: "PS Motif-4",
+          url: "gffs/MEME-4.gff",
+          format: "gff3",
+          color: "#ffb74d",
+          displayMode: "COLLAPSED",
+          height: 40,
+          nameField: "Motif"
+        },
+        {
+          name: "Processing Sites",
+          url: "gffs/sig_ptss.gff",
+          format: "gff3",
+          color: "#ff8a65",
+          displayMode: "COLLAPSED",
+          height: 40
+        }
+      ]
+    };
+        igv.createBrowser(document.getElementById("igvContainer"), igvOptions).then(function(browser) {
+          window.igvBrowser = browser;
+          console.log("IGV browser created");
+        });
+      }
+    });
+    
+    /* -------------------- Viewer, Data Tables, and asRNA/mRNA Pairs code -------------------- */
+    // Global storage for file data and gene names.
     let dataFiles = [];
     let geneArray = [];
-
+    
+    // DOM elements for Viewer tab
     const fileInput = document.getElementById('fileInput');
     const geneInput = document.getElementById('geneInput');
     const geneList = document.getElementById('geneList');
@@ -343,7 +434,7 @@
     const nextGeneButton = document.getElementById('nextGene');
     const chartCanvas = document.getElementById('chartCanvas');
     let chart;
-
+    
     fileInput.addEventListener('change', function(event) {
       const files = event.target.files;
       const promises = [];
@@ -391,7 +482,7 @@
         console.error("Error reading file: ", err);
       });
     });
-
+    
     function updateGeneList() {
       const geneSet = new Set();
       dataFiles.forEach(fileObj => {
@@ -410,7 +501,7 @@
         geneList.appendChild(option);
       });
     }
-
+    
     function updateTableList() {
       const tableListDiv = document.getElementById('tableList');
       const tableDisplayDiv = document.getElementById('tableDisplay');
@@ -458,7 +549,7 @@
       });
       tableListDiv.appendChild(tbl);
     }
-
+    
     function removeFile(filename) {
       const tableDisplayDiv = document.getElementById('tableDisplay');
       const index = dataFiles.findIndex(f => f.filename === filename);
@@ -470,7 +561,7 @@
         alert(`File "${filename}" removed.`);
       }
     }
-
+    
     function viewTable(filename) {
       const tableDisplayDiv = document.getElementById('tableDisplay');
       const fileObj = dataFiles.find(f => f.filename === filename);
@@ -508,7 +599,7 @@
       tableDisplayDiv.innerHTML = "";
       tableDisplayDiv.appendChild(tbl);
     }
-
+    
     function plotGene(geneName) {
       const labels = [];
       const values = [];
@@ -526,7 +617,7 @@
           }
         }
       });
-
+    
       if (labels.length === 0) {
         alert("Gene not found in the loaded files.");
         return;
@@ -596,7 +687,7 @@
         }
       });
     }
-
+    
     plotButton.addEventListener('click', function() {
       const geneName = geneInput.value.trim();
       if (!geneName) {
@@ -605,7 +696,7 @@
       }
       plotGene(geneName);
     });
-
+    
     nextGeneButton.addEventListener('click', function() {
       let currentGene = geneInput.value.trim();
       let currentIndex = geneArray.indexOf(currentGene);
@@ -617,7 +708,7 @@
       geneInput.value = geneArray[currentIndex];
       plotGene(geneArray[currentIndex]);
     });
-
+    
     prevGeneButton.addEventListener('click', function() {
       let currentGene = geneInput.value.trim();
       let currentIndex = geneArray.indexOf(currentGene);
@@ -629,7 +720,7 @@
       geneInput.value = geneArray[currentIndex];
       plotGene(geneArray[currentIndex]);
     });
-
+    
     function shadeColor(color, percent) {
       let f = parseInt(color.slice(1), 16),
           t = percent < 0 ? 0 : 255,
@@ -641,39 +732,33 @@
         + (Math.round((t - G) * p / 100) + G) * 0x100 
         + (Math.round((t - B) * p / 100) + B)).toString(16).slice(1);
     }
-
+    
     /* -------------------- asRNA/mRNA Pairs Tab Code -------------------- */
     let correlationDataPairs = [];
     let expressionDataPairs = [];
     let geneListPairs = [];
     let currentGeneIndexPairs = 0;
     let pairsChart = null;
-
+    
     const uploadStatusPairs = document.getElementById('uploadStatusPairs');
     const geneSelectPairs = document.getElementById('geneSelectPairs');
     const prevGenePairs = document.getElementById('prevGenePairs');
     const nextGenePairs = document.getElementById('nextGenePairs');
     const pairsChartCanvas = document.getElementById('pairsChartCanvas');
     const correlationTableBodyPairs = document.getElementById('correlationTableBodyPairs');
-    const filterButton = document.getElementById('filterButton');
-    const filteredTableDiv = document.getElementById('filteredTableDiv');
-    // Note: We no longer use a separate canvas for boxplots. We'll reuse pairsChartCanvas.
-
-    // Load asRNA/mRNA pairs data automatically from the backend using relative paths.
+    
     function loadPairsData() {
       uploadStatusPairs.textContent = "Loading data...";
       Promise.all([
-        fetch('data/expression_correlation.tsv').then(response => response.text()),
-        fetch('data/expression_summary.tsv').then(response => response.text())
+        fetch('/data/correlation.txt').then(response => response.text()),
+        fetch('/data/expression.txt').then(response => response.text())
       ]).then(([corrText, exprText]) => {
         Papa.parse(corrText, {
           header: true,
           delimiter: "\t",
           dynamicTyping: true,
           complete: function(results) {
-            console.log("Raw correlation data:", results.data);
             correlationDataPairs = results.data.filter(row => row.Gene);
-            console.log("Filtered correlation data:", correlationDataPairs);
             checkPairsReady();
           }
         });
@@ -682,9 +767,7 @@
           delimiter: "\t",
           dynamicTyping: true,
           complete: function(results) {
-            console.log("Raw expression data:", results.data);
             expressionDataPairs = results.data.filter(row => row.Gene);
-            console.log("Filtered expression data:", expressionDataPairs);
             checkPairsReady();
           }
         });
@@ -692,11 +775,11 @@
         uploadStatusPairs.textContent = "Error loading data: " + error;
       });
     }
-
+    
     document.addEventListener('DOMContentLoaded', function() {
       loadPairsData();
     });
-
+    
     function checkPairsReady() {
       if (correlationDataPairs.length && expressionDataPairs.length) {
         uploadStatusPairs.textContent = "Files successfully loaded!";
@@ -705,14 +788,14 @@
         updatePairsDisplayForGene(geneListPairs[currentGeneIndexPairs]);
       }
     }
-
+    
     function buildGeneListPairs() {
       const genesFromExpr = expressionDataPairs.map(d => d.Gene);
       const genesFromCorr = correlationDataPairs.map(d => d.Gene);
       const allGenes = [...genesFromExpr, ...genesFromCorr];
       geneListPairs = Array.from(new Set(allGenes)).sort();
     }
-
+    
     function setupGeneNavigationPairs() {
       geneSelectPairs.innerHTML = "";
       geneListPairs.forEach(gene => {
@@ -740,12 +823,12 @@
         }
       });
     }
-
+    
     function updatePairsDisplayForGene(gene) {
       updatePairsCorrelationTable(gene);
       updatePairsExpressionChart(gene);
     }
-
+    
     function updatePairsCorrelationTable(gene) {
       correlationTableBodyPairs.innerHTML = "";
       const filtered = correlationDataPairs.filter(row => row.Gene === gene);
@@ -766,7 +849,7 @@
         correlationTableBodyPairs.appendChild(row);
       });
     }
-
+    
     function updatePairsExpressionChart(gene) {
       const geneRows = expressionDataPairs.filter(row => row.Gene === gene);
       if (geneRows.length === 0) {
@@ -876,143 +959,8 @@
               }
             },
             legend: { display: true, labels: { color: '#e0e0e0' } }
-          }
-        }
-      });
-    }
-
-    /* -------------------- Filter and Boxplot Functionality -------------------- */
-    filterButton.addEventListener('click', function() {
-      const threshold = parseFloat(document.getElementById('correlationThreshold').value);
-      // Filter correlationDataPairs for rows with Correlation >= threshold
-      const filteredPairs = correlationDataPairs.filter(item => parseFloat(item.Correlation) >= threshold);
-      buildFilteredTable(filteredPairs);
-    });
-
-    function buildFilteredTable(dataArray) {
-      filteredTableDiv.innerHTML = "";
-      if (dataArray.length === 0) {
-        filteredTableDiv.innerHTML = "<p>No pairs found with correlation ≥ specified threshold.</p>";
-        return;
-      }
-      const tbl = document.createElement('table');
-      const headerRow = document.createElement('tr');
-      ['Gene', 'asRNA', 'Correlation', 'Correlation p‑value', '# Experiments'].forEach(text => {
-        const th = document.createElement('th');
-        th.textContent = text;
-        headerRow.appendChild(th);
-      });
-      tbl.appendChild(headerRow);
-      
-      dataArray.forEach(item => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${item.Gene}</td>
-          <td>${item.asRNA}</td>
-          <td>${parseFloat(item.Correlation).toFixed(3)}</td>
-          <td>${parseFloat(item.Correlation_pvalue).toFixed(3)}</td>
-          <td>${item.Num_experiments}</td>
-        `;
-        // Clicking a row shows a boxplot for that gene in the same canvas area.
-        row.addEventListener('click', function() {
-          showGeneExpressionBoxplot(item.Gene);
-        });
-        tbl.appendChild(row);
-      });
-      filteredTableDiv.appendChild(tbl);
-    }
-
-    // Helper functions for boxplot statistics.
-    function computeBoxPlotStats(values) {
-      values.sort((a, b) => a - b);
-      const min = values[0],
-            max = values[values.length - 1],
-            median = computeMedian(values),
-            q1 = computeMedian(values.slice(0, Math.floor(values.length / 2))),
-            q3 = computeMedian(values.slice(Math.ceil(values.length / 2)));
-      return [min, q1, median, q3, max];
-    }
-
-    function computeMedian(arr) {
-      const mid = Math.floor(arr.length / 2);
-      if (arr.length % 2 === 0) {
-        return (arr[mid - 1] + arr[mid]) / 2;
-      } else {
-        return arr[mid];
-      }
-    }
-
-    // Instead of using a separate canvas, we reuse pairsChartCanvas for the boxplot.
-    function showGeneExpressionBoxplot(gene) {
-      const geneRows = expressionDataPairs.filter(row => row.Gene === gene);
-      if (geneRows.length === 0) {
-        alert("No expression data found for gene: " + gene);
-        return;
-      }
-      // Group expression values by Experiment.
-      const experiments = {};
-      geneRows.forEach(row => {
-        if (!experiments[row.Experiment]) {
-          experiments[row.Experiment] = [];
-        }
-        if (row.Gene_log2FoldChange !== null) {
-          experiments[row.Experiment].push(row.Gene_log2FoldChange);
-        }
-      });
-      const labels = Object.keys(experiments).sort();
-      const boxData = [];
-      labels.forEach(exp => {
-        const values = experiments[exp];
-        if (values.length > 0) {
-          boxData.push(computeBoxPlotStats(values));
-        } else {
-          boxData.push([0, 0, 0, 0, 0]);
-        }
-      });
-      
-      // Use pairsChartCanvas to create a boxplot chart.
-      if (pairsChart) { pairsChart.destroy(); }
-      const ctx = pairsChartCanvas.getContext('2d');
-      pairsChart = new Chart(ctx, {
-        type: 'boxplot',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Expression Boxplot for ' + gene,
-            data: boxData,
-            backgroundColor: 'rgba(75, 192, 192, 0.5)',
-            borderColor: 'rgba(75, 192, 192, 1)',
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: true, labels: { color: '#e0e0e0' } },
-            title: {
-              display: true,
-              text: 'Expression Boxplot for ' + gene,
-              font: { size: 20 },
-              color: '#e0e0e0'
-            }
           },
-          scales: {
-            y: {
-              beginAtZero: false,
-              ticks: { color: '#e0e0e0' },
-              grid: { color: '#555' },
-              title: {
-                display: true,
-                text: 'log2FoldChange',
-                font: { size: 16 },
-                color: '#e0e0e0'
-              }
-            },
-            x: {
-              ticks: { color: '#e0e0e0' },
-              grid: { color: '#555' }
-            }
-          }
+          animation: { duration: 800, easing: 'easeOutQuart' }
         }
       });
     }
