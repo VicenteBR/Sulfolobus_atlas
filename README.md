@@ -1,2 +1,1 @@
-# vicentebr.github.io
- sulfolobus_atlas
+Sulfolobus acidocaldarius atlas (Brück et al, 2025)
