@@ -750,8 +750,8 @@
     function loadPairsData() {
       uploadStatusPairs.textContent = "Loading data...";
       Promise.all([
-        fetch('/data/correlation.txt').then(response => response.text()),
-        fetch('/data/expression.txt').then(response => response.text())
+        fetch('data/correlation.txt').then(response => response.text()),
+        fetch('data/expression.txt').then(response => response.text())
       ]).then(([corrText, exprText]) => {
         Papa.parse(corrText, {
           header: true,
