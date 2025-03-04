@@ -11,6 +11,42 @@
   <!-- IGV.js CSS for Genome Viewer -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/igv/dist/igv.css">
   <style>
+    /* Standardize all button styling */
+    button {
+      background-color: #2e2e2e;
+      color: #e0e0e0;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 10px 15px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s ease, border-color 0.3s ease;
+      outline: none;
+    }
+    button:hover {
+      background-color: #222;
+      border-color: #777;
+    }
+    button:active {
+      background-color: #1e1e1e;
+      border-color: #666;
+    }
+    
+    /* Standardize form elements: dropdowns, search bars, file inputs */
+    select, input[type="text"], input[type="file"] {
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 16px;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+    select:focus, input[type="text"]:focus {
+      border-color: #0072B2;
+      outline: none;
+    }
+    
     /* Base styling */
     body {
       font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -38,13 +74,6 @@
     }
     .tab-bar button {
       flex: 1;
-      padding: 10px;
-      border: none;
-      background-color: #2e2e2e;
-      color: #e0e0e0;
-      cursor: pointer;
-      font-size: 16px;
-      border-radius: 4px;
     }
     .tab-bar button.active {
       background-color: #0072B2;
@@ -193,7 +222,6 @@
     }
     
     /* ----------------------- Processing Site Motifs Tab Styles ----------------------- */
-    /* The motifs viewer is nested inside the "Processing Site Motifs" tab */
     #motifsTab .motifs-container {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -283,6 +311,11 @@
       color: #e0e0e0;
       font-size: 14px;
     }
+    
+    /* -------------------- Save Chart Button Styles (applied via .save-chart-btn) -------------------- */
+    .save-chart-btn {
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -306,6 +339,9 @@
       </div>
       <datalist id="geneList"></datalist>
       <button id="plotButton">Plot Gene Expression</button>
+      <!-- Save and Export buttons for Expression Profiles -->
+      <button id="saveChartButton" class="save-chart-btn">Save PNG</button>
+      <button id="exportTableButton" class="save-chart-btn">Export as a Table</button>
       <canvas id="chartCanvas"></canvas>
       <div id="legend">
         <div>
@@ -333,17 +369,6 @@
     <!-- asRNA/mRNA pairs Tab -->
     <div id="pairsTab" class="tab-content">
       <h2>asRNA/mRNA Pairs Explorer</h2>
-      <!-- File upload inputs are commented out since data is loaded automatically -->
-      <!--
-      <div class="upload-group">
-        <label for="correlationFilePairs">Correlation File Upload (tab‑delimited):</label>
-        <input type="file" id="correlationFilePairs" accept=".txt,.tsv">
-      </div>
-      <div class="upload-group">
-        <label for="expressionFilePairs">Expression File Upload (tab‑delimited):</label>
-        <input type="file" id="expressionFilePairs" accept=".txt,.tsv">
-      </div>
-      -->
       <p id="uploadStatusPairs" class="status-message"></p>
       <!-- Gene Navigation -->
       <div class="gene-nav">
@@ -353,6 +378,9 @@
       </div>
       <!-- Chart for asRNA/mRNA Pairs -->
       <canvas id="pairsChartCanvas"></canvas>
+      <!-- Save and Export buttons for asRNA/mRNA pairs -->
+      <button id="savePairsChartButton" class="save-chart-btn">Save PNG</button>
+      <button id="exportPairsTableButton" class="save-chart-btn">Export as a Table</button>
       <!-- Correlation Summary Table -->
       <div class="pairs-section">
         <h2>Correlation Summary</h2>
@@ -380,7 +408,6 @@
     
     <!-- Processing Site Motifs Tab -->
     <div id="motifsTab" class="tab-content">
-      <!-- The motifs viewer is contained in its own grid container -->
       <div class="motifs-container">
         <!-- Section 1 -->
         <div class="section">
@@ -453,6 +480,66 @@
   <!-- IGV.js script for Genome Viewer -->
   <script src="https://cdn.jsdelivr.net/npm/igv/dist/igv.min.js"></script>
   <script>
+    /* -------------------- Helper: Save Canvas as High-Res PNG -------------------- */
+    function saveCanvasAsHighResImage(canvas, filename, scaleFactor = 2) {
+      const originalWidth = canvas.width;
+      const originalHeight = canvas.height;
+      const scaledCanvas = document.createElement('canvas');
+      scaledCanvas.width = originalWidth * scaleFactor;
+      scaledCanvas.height = originalHeight * scaleFactor;
+      const scaledContext = scaledCanvas.getContext('2d');
+      scaledContext.scale(scaleFactor, scaleFactor);
+      scaledContext.drawImage(canvas, 0, 0);
+      const url = scaledCanvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+    }
+    
+    /* -------------------- Color Functions -------------------- */
+    function shadeColor(color, percent) {
+      let f = parseInt(color.slice(1), 16),
+          t = percent < 0 ? 0 : 255,
+          p = Math.abs(percent),
+          R = f >> 16,
+          G = f >> 8 & 0x00FF,
+          B = f & 0x0000FF;
+      return "#" + (0x1000000 + (Math.round((t - R) * p / 100) + R) * 0x10000 +
+        (Math.round((t - G) * p / 100) + G) * 0x100 +
+        (Math.round((t - B) * p / 100) + B)).toString(16).slice(1);
+    }
+    
+    function darkenColor(hex, percent) {
+      hex = hex.replace(/^\s*#|\s*$/g, '');
+      if(hex.length === 3) { hex = hex.replace(/(.)/g, '$1$1'); }
+      const num = parseInt(hex, 16),
+            amt = Math.round(2.55 * percent),
+            R = (num >> 16) - amt,
+            G = (num >> 8 & 0x00FF) - amt,
+            B = (num & 0x0000FF) - amt;
+      return '#' + (0x1000000 +
+        (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+        (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
+        (B < 255 ? (B < 1 ? 0 : B) : 255))
+        .toString(16).slice(1);
+    }
+    
+    function lightenColor(hex, percent) {
+      hex = hex.replace(/^\s*#|\s*$/g, '');
+      if(hex.length === 3) { hex = hex.replace(/(.)/g, '$1$1'); }
+      const num = parseInt(hex, 16),
+            amt = Math.round(2.55 * percent),
+            R = (num >> 16) + amt,
+            G = (num >> 8 & 0x00FF) + amt,
+            B = (num & 0x0000FF) + amt;
+      return '#' + (0x1000000 +
+        (R < 255 ? (R > 255 ? 255 : R) : 255) * 0x10000 +
+        (G < 255 ? (G > 255 ? 255 : G) : 255) * 0x100 +
+        (B < 255 ? (B > 255 ? 255 : B) : 255))
+        .toString(16).slice(1);
+    }
+    
     /* -------------------- Tab Switching -------------------- */
     const viewerTabBtn = document.getElementById('viewerTabBtn');
     const tablesTabBtn = document.getElementById('tablesTabBtn');
@@ -498,7 +585,6 @@
       clearActiveTabs();
       genomeViewerTab.classList.add('active');
       genomeViewerTabBtn.classList.add('active');
-      // Initialize IGV browser if not already created.
       if (!window.igvBrowser) {
         const igvOptions = {
           genome: {
@@ -594,11 +680,8 @@
     });
     
     /* -------------------- Viewer, Data Tables, and asRNA/mRNA Pairs code -------------------- */
-    // Global storage for file data and gene names.
     let dataFiles = [];
     let geneArray = [];
-    
-    // DOM elements for Viewer tab
     const fileInput = document.getElementById('fileInput');
     const geneInput = document.getElementById('geneInput');
     const geneList = document.getElementById('geneList');
@@ -611,7 +694,6 @@
     fileInput.addEventListener('change', function(event) {
       const files = event.target.files;
       const promises = [];
-      
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const existingIndex = dataFiles.findIndex(f => f.filename === file.name);
@@ -622,7 +704,6 @@
             dataFiles.splice(existingIndex, 1);
           }
         }
-        
         const promise = new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = function(e) {
@@ -635,7 +716,6 @@
             }
             let headers = Object.keys(parsed.data[0]);
             let geneColumn = headers.find(h => h.toLowerCase() === "gene") || headers[0];
-            
             dataFiles.push({ filename: file.name, data: parsed.data, geneColumn: geneColumn });
             resolve();
           };
@@ -646,7 +726,6 @@
         });
         promises.push(promise);
       }
-      
       Promise.all(promises).then(() => {
         updateGeneList();
         updateTableList();
@@ -684,7 +763,6 @@
         tableDisplayDiv.innerHTML = "";
         return;
       }
-      
       const tbl = document.createElement('table');
       const headerRow = document.createElement('tr');
       ['Filename', 'Actions'].forEach(text => {
@@ -693,13 +771,11 @@
         headerRow.appendChild(th);
       });
       tbl.appendChild(headerRow);
-      
       dataFiles.forEach(fileObj => {
         const row = document.createElement('tr');
         const nameCell = document.createElement('td');
         nameCell.textContent = fileObj.filename;
         const actionsCell = document.createElement('td');
-        
         const viewBtn = document.createElement('button');
         viewBtn.textContent = "View";
         viewBtn.style.width = "80px";
@@ -715,7 +791,6 @@
         actionsCell.appendChild(viewBtn);
         actionsCell.appendChild(document.createTextNode(" "));
         actionsCell.appendChild(removeBtn);
-        
         row.appendChild(nameCell);
         row.appendChild(actionsCell);
         tbl.appendChild(row);
@@ -757,7 +832,6 @@
       });
       thead.appendChild(headerRow);
       tbl.appendChild(thead);
-      
       const tbody = document.createElement('tbody');
       fileObj.data.forEach(row => {
         const tr = document.createElement('tr');
@@ -773,11 +847,12 @@
       tableDisplayDiv.appendChild(tbl);
     }
     
+    // Modified plotGene to preserve scroll position.
     function plotGene(geneName) {
+      const savedScrollPos = window.pageYOffset;
       const labels = [];
       const values = [];
       const colors = [];
-      
       dataFiles.forEach(fileObj => {
         const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
         if (record) {
@@ -790,12 +865,10 @@
           }
         }
       });
-    
       if (labels.length === 0) {
         alert("Gene not found in the loaded files.");
         return;
       }
-      
       const ctx = chartCanvas.getContext('2d');
       if (chart) { chart.destroy(); }
       chart = new Chart(ctx, {
@@ -859,6 +932,7 @@
           animation: { duration: 800, easing: 'easeOutQuart' }
         }
       });
+      window.scrollTo(0, savedScrollPos);
     }
     
     plotButton.addEventListener('click', function() {
@@ -893,18 +967,6 @@
       geneInput.value = geneArray[currentIndex];
       plotGene(geneArray[currentIndex]);
     });
-    
-    function shadeColor(color, percent) {
-      let f = parseInt(color.slice(1), 16),
-          t = percent < 0 ? 0 : 255,
-          p = Math.abs(percent),
-          R = f >> 16,
-          G = f >> 8 & 0x00FF,
-          B = f & 0x0000FF;
-      return "#" + (0x1000000 + (Math.round((t - R) * p / 100) + R) * 0x10000 
-        + (Math.round((t - G) * p / 100) + G) * 0x100 
-        + (Math.round((t - B) * p / 100) + B)).toString(16).slice(1);
-    }
     
     /* -------------------- asRNA/mRNA Pairs Tab Code -------------------- */
     let correlationDataPairs = [];
@@ -1029,10 +1091,8 @@
         if (pairsChart) { pairsChart.destroy(); }
         return;
       }
-      
       let experiments = Array.from(new Set(geneRows.map(row => row.Experiment)));
       experiments.sort();
-      
       const geneDatasetData = experiments.map(exp => {
         const rows = geneRows.filter(r => r.Experiment === exp && r.Gene_log2FoldChange !== null);
         return rows.length ? rows[0].Gene_log2FoldChange : null;
@@ -1041,7 +1101,6 @@
         const rows = geneRows.filter(r => r.Experiment === exp && r.Gene_pvalue !== null);
         return rows.length ? rows[0].Gene_pvalue : null;
       });
-      
       const asRNAIds = Array.from(new Set(geneRows.map(row => row.asRNA_ids)));
       const asRNADatasets = asRNAIds.map(id => {
         const data = experiments.map(exp => {
@@ -1054,9 +1113,7 @@
         });
         return { id, data, pvals };
       });
-      
       const geneColors = geneDatasetPvals.map(pval => (pval !== null && pval <= 0.05) ? "#4fc3f7" : lightenColor("#4fc3f7", 40));
-      
       const asRNABaseColors = ["#ffb74d", "#f57c00", "#ffa726", "#ffcc80", "#ffe0b2"];
       const asRNADatasetsConfig = asRNADatasets.map((ds, idx) => {
         const baseColor = asRNABaseColors[idx % asRNABaseColors.length];
@@ -1069,7 +1126,6 @@
           borderWidth: 1
         };
       });
-      
       const geneDatasetConfig = {
         label: 'Gene log2FoldChange',
         data: geneDatasetData,
@@ -1077,7 +1133,6 @@
         borderColor: geneColors.map(c => darkenColor(c, 20)),
         borderWidth: 1
       };
-      
       if (pairsChart) { pairsChart.destroy(); }
       const ctx = pairsChartCanvas.getContext('2d');
       pairsChart = new Chart(ctx, {
@@ -1138,56 +1193,117 @@
       });
     }
     
-    function darkenColor(hex, percent) {
-      hex = hex.replace(/^\s*#|\s*$/g, '');
-      if(hex.length === 3){ hex = hex.replace(/(.)/g, '$1$1'); }
-      const num = parseInt(hex, 16),
-            amt = Math.round(2.55 * percent),
-            R = (num >> 16) - amt,
-            G = (num >> 8 & 0x00FF) - amt,
-            B = (num & 0x0000FF) - amt;
-      return '#' + (0x1000000 +
-        (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
-        (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
-        (B < 255 ? (B < 1 ? 0 : B) : 255))
-        .toString(16).slice(1);
-    }
+    /* -------------------- Export as Table: Viewer Tab -------------------- */
+    document.getElementById('exportTableButton').addEventListener('click', function(){
+      const geneName = geneInput.value.trim();
+      if (!geneName) {
+        alert("No gene selected.");
+        return;
+      }
+      let tableData = "Filename\tlog2FoldChange\tpvalue\n";
+      dataFiles.forEach(fileObj => {
+        const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
+        if (record) {
+          tableData += `${fileObj.filename}\t${record.log2FoldChange}\t${record.pvalue}\n`;
+        }
+      });
+      const blob = new Blob([tableData], { type: 'text/tab-separated-values;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = geneName + ".tab";
+      a.click();
+    });
     
-    function lightenColor(hex, percent) {
-      hex = hex.replace(/^\s*#|\s*$/g, '');
-      if(hex.length === 3){ hex = hex.replace(/(.)/g, '$1$1'); }
-      const num = parseInt(hex, 16),
-            amt = Math.round(2.55 * percent),
-            R = (num >> 16) + amt,
-            G = (num >> 8 & 0x00FF) + amt,
-            B = (num & 0x0000FF) + amt;
-      return '#' + (0x1000000 +
-        (R < 255 ? (R > 255 ? 255 : R) : 255) * 0x10000 +
-        (G < 255 ? (G > 255 ? 255 : G) : 255) * 0x100 +
-        (B < 255 ? (B > 255 ? 255 : B) : 255))
-        .toString(16).slice(1);
-    }
+    /* -------------------- Export as Table: asRNA/mRNA Pairs Tab -------------------- */
+    document.getElementById('exportPairsTableButton').addEventListener('click', function(){
+      const geneName = geneSelectPairs.value.trim();
+      if (!geneName) {
+        alert("No gene selected.");
+        return;
+      }
+      const geneRows = expressionDataPairs.filter(row => row.Gene === geneName);
+      if (geneRows.length === 0) {
+        alert("No expression data available for this gene.");
+        return;
+      }
+      let experiments = Array.from(new Set(geneRows.map(row => row.Experiment)));
+      experiments.sort();
+      const geneDatasetData = experiments.map(exp => {
+        const rows = geneRows.filter(r => r.Experiment === exp && r.Gene_log2FoldChange != null);
+        return rows.length ? rows[0].Gene_log2FoldChange : "";
+      });
+      const geneDatasetPvals = experiments.map(exp => {
+        const rows = geneRows.filter(r => r.Experiment === exp && r.Gene_pvalue != null);
+        return rows.length ? rows[0].Gene_pvalue : "";
+      });
+      const asRNAIds = Array.from(new Set(geneRows.map(row => row.asRNA_ids)));
+      const asRNADatasets = asRNAIds.map(id => {
+        const data = experiments.map(exp => {
+          const rows = geneRows.filter(r => r.Experiment === exp && r.asRNA_ids === id);
+          return rows.length ? rows[0].asRNA_log2FoldChange : "";
+        });
+        const pvals = experiments.map(exp => {
+          const rows = geneRows.filter(r => r.Experiment === exp && r.asRNA_ids === id);
+          return rows.length ? rows[0].asRNA_pvalue : "";
+        });
+        return { id, data, pvals };
+      });
+      let tableData = "Experiment\tGene_log2FoldChange\tGene_pvalue";
+      asRNADatasets.forEach(ds => {
+        tableData += `\tasRNA_${ds.id}_log2FoldChange\tasRNA_${ds.id}_pvalue`;
+      });
+      tableData += "\n";
+      experiments.forEach((exp, i) => {
+        let row = `${exp}\t${geneDatasetData[i]}\t${geneDatasetPvals[i]}`;
+        asRNADatasets.forEach(ds => {
+          row += `\t${ds.data[i]}\t${ds.pvals[i]}`;
+        });
+        tableData += row + "\n";
+      });
+      const blob = new Blob([tableData], { type: 'text/tab-separated-values;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = geneName + ".tab";
+      a.click();
+    });
+    
+    /* -------------------- Save Chart (Export PNG) Buttons -------------------- */
+    document.getElementById('saveChartButton').addEventListener('click', function(){
+      if (chart) {
+        let geneName = geneInput.value.trim() || "expression_profile_chart";
+        const filename = geneName + ".png";
+        saveCanvasAsHighResImage(chartCanvas, filename, 2);
+      } else {
+        alert("No chart available to save.");
+      }
+    });
+    
+    document.getElementById('savePairsChartButton').addEventListener('click', function(){
+      if (pairsChart) {
+        let geneName = geneSelectPairs.value.trim() || "asRNA_mRNA_pairs_chart";
+        const filename = geneName + ".png";
+        saveCanvasAsHighResImage(pairsChartCanvas, filename, 2);
+      } else {
+        alert("No pairs chart available to save.");
+      }
+    });
     
     /* -------------------- Processing Site Motifs (FASTA/SVG Viewer) Code -------------------- */
-    // Loads a FASTA file, parses it, populates a dropdown, and updates the sequence display.
     async function loadFasta(file, selectId, displayId) {
       try {
         const response = await fetch(file);
         const text = await response.text();
         const sequences = parseFasta(text);
         const select = document.getElementById(selectId);
-        // Populate the dropdown with header IDs.
         for (let header in sequences) {
           const option = document.createElement('option');
           option.value = header;
           option.textContent = header;
           select.appendChild(option);
         }
-        // Display the first sequence by default (if available).
         if (select.value) {
           document.getElementById(displayId).textContent = sequences[select.value];
         }
-        // Update the display when a new header is selected.
         select.addEventListener('change', function(){
           document.getElementById(displayId).textContent = sequences[this.value];
         });
@@ -1196,7 +1312,6 @@
       }
     }
     
-    // Basic FASTA parser that returns an object mapping header IDs to sequences.
     function parseFasta(text) {
       const sequences = {};
       let currentHeader = null;
@@ -1213,19 +1328,16 @@
       return sequences;
     }
     
-    // Extract coordinates from a header (e.g. "Motif-1:NC_007181.1:1658568-1658589(-)" returns "1658568-1658589").
     function extractCoordinates(header) {
       const match = header.match(/:(\d+-\d+)/);
       return match ? match[1] : "";
     }
     
-    // Register copy button event listeners for a given section number.
     function registerCopyButtons(sectionNum) {
       const select = document.getElementById('fastaSelect' + sectionNum);
       const pre = document.getElementById('sequenceDisplay' + sectionNum);
       const copyCoordBtn = document.getElementById('copyCoord' + sectionNum);
       const copySeqBtn = document.getElementById('copySeq' + sectionNum);
-    
       copyCoordBtn.addEventListener('click', () => {
         const header = select.value;
         const coords = extractCoordinates(header);
@@ -1235,7 +1347,6 @@
           console.error('Failed to copy coordinates', err);
         });
       });
-    
       copySeqBtn.addEventListener('click', () => {
         const sequence = pre.textContent;
         navigator.clipboard.writeText(sequence).then(() => {
@@ -1246,15 +1357,11 @@
       });
     }
     
-    // Initialize the Processing Site Motifs viewer when the DOM is ready.
     document.addEventListener('DOMContentLoaded', function() {
-      // Load FASTA files for each motif section.
       loadFasta('sequences/MEME-1.fa', 'fastaSelect1', 'sequenceDisplay1');
       loadFasta('sequences/MEME-2.fa', 'fastaSelect2', 'sequenceDisplay2');
       loadFasta('sequences/MEME-3.fa', 'fastaSelect3', 'sequenceDisplay3');
       loadFasta('sequences/MEME-4.fa', 'fastaSelect4', 'sequenceDisplay4');
-    
-      // Register copy buttons for each motif section.
       [1, 2, 3, 4].forEach(num => registerCopyButtons(num));
     });
   </script>
