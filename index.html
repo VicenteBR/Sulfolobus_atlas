@@ -8,6 +8,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- PapaParse for CSV/TSV parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <!-- Plotly for heatmap rendering -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <!-- IGV.js CSS for Genome Viewer -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/igv/dist/igv.css">
   <style>
@@ -326,6 +328,7 @@
       <button id="pairsTabBtn">asRNA/mRNA pairs</button>
       <button id="genomeViewerTabBtn">Genome Viewer</button>
       <button id="motifsTabBtn">Processing Site Motifs</button>
+      <button id="heatmapTabBtn">Heatmap</button>
     </div>
     
     <!-- Viewer Tab -->
@@ -475,6 +478,25 @@
         </div>
       </div>
     </div>
+    
+    <!-- Heatmap Tab -->
+    <div id="heatmapTab" class="tab-content">
+        <!-- NEW: Gene filtering inputs -->
+  <div id="heatmapFilters">
+    <input type="text" id="filterGeneName" placeholder="Filter by gene name">
+    <input type="number" id="filterPValue" placeholder="Max p-value">
+    <input type="number" id="filterLog2FC" placeholder="Min log2FoldChange">
+  </div>
+  <!-- NEW: Color scale customization slider -->
+  <div>
+    <label for="colorScaleSlider">Adjust Color Scale:</label>
+    <input type="range" id="colorScaleSlider" min="-5" max="5" step="0.1" value="0">
+  </div>
+
+      <h2>Expression Heatmap</h2>
+      <button id="generateHeatmapButton">Generate Heatmap</button>
+      <div id="heatmapContainer" style="width:100%; height:1040p;"></div>
+    </div>
   </div>
   
   <!-- IGV.js script for Genome Viewer -->
@@ -546,11 +568,14 @@
     const pairsTabBtn = document.getElementById('pairsTabBtn');
     const genomeViewerTabBtn = document.getElementById('genomeViewerTabBtn');
     const motifsTabBtn = document.getElementById('motifsTabBtn');
+    const heatmapTabBtn = document.getElementById('heatmapTabBtn');
+    
     const viewerTab = document.getElementById('viewerTab');
     const tablesTab = document.getElementById('tablesTab');
     const pairsTab = document.getElementById('pairsTab');
     const genomeViewerTab = document.getElementById('genomeViewerTab');
     const motifsTab = document.getElementById('motifsTab');
+    const heatmapTab = document.getElementById('heatmapTab');
     
     function clearActiveTabs() {
       viewerTab.classList.remove('active');
@@ -558,11 +583,14 @@
       pairsTab.classList.remove('active');
       genomeViewerTab.classList.remove('active');
       motifsTab.classList.remove('active');
+      heatmapTab.classList.remove('active');
+      
       viewerTabBtn.classList.remove('active');
       tablesTabBtn.classList.remove('active');
       pairsTabBtn.classList.remove('active');
       genomeViewerTabBtn.classList.remove('active');
       motifsTabBtn.classList.remove('active');
+      heatmapTabBtn.classList.remove('active');
     }
     
     viewerTabBtn.addEventListener('click', function() {
@@ -604,6 +632,14 @@
               displayMode: "EXPANDED",
               height: 100,
               filterTypes: ['CDS']
+            },
+            {
+              name: "ncRNAs / asRNAs",
+              url: "gffs/nc-as-rnas.gff",
+              format: "gff3",
+              color: "#81d4fa",
+              displayMode: "EXPANDED",
+              height: 80,
             },
             {
               name: "smAP1 (Interaction)",
@@ -677,6 +713,11 @@
       clearActiveTabs();
       motifsTab.classList.add('active');
       motifsTabBtn.classList.add('active');
+    });
+    heatmapTabBtn.addEventListener('click', function() {
+      clearActiveTabs();
+      heatmapTab.classList.add('active');
+      heatmapTabBtn.classList.add('active');
     });
     
     /* -------------------- Viewer, Data Tables, and asRNA/mRNA Pairs code -------------------- */
@@ -1286,6 +1327,74 @@
       } else {
         alert("No pairs chart available to save.");
       }
+    });
+    
+    /* -------------------- Heatmap Functionality -------------------- */
+    function generateHeatmap() {
+      if (dataFiles.length === 0 || geneArray.length === 0) {
+        alert("No data loaded to generate heatmap.");
+        return;
+      }
+      
+  // NEW: Read filter inputs and filter the gene list
+  const filterName = document.getElementById('filterGeneName').value.trim().toLowerCase();
+  const filterPValue = parseFloat(document.getElementById('filterPValue').value);
+  const filterLog2FC = parseFloat(document.getElementById('filterLog2FC').value);
+  const filteredGenes = geneArray.filter(gene => {
+    if (filterName && !gene.toLowerCase().includes(filterName)) return false;
+    // Use the first file as reference (customize if needed)
+    const record = dataFiles[0].data.find(row => row[dataFiles[0].geneColumn] === gene);
+    if (!record) return false;
+    if (!isNaN(filterPValue) && record.pvalue > filterPValue) return false;
+    if (!isNaN(filterLog2FC) && record.log2FoldChange < filterLog2FC) return false;
+    return true;
+  });
+  const genes = filteredGenes;
+     const files = dataFiles.map(f => f.filename);
+      // Build matrix: each row corresponds to a gene and each column to a file's log2FoldChange value.
+      const heatmapData = genes.map(gene => {
+        return dataFiles.map(fileObj => {
+          const record = fileObj.data.find(row => row[fileObj.geneColumn] === gene);
+          return record ? record.log2FoldChange : null;
+        });
+      });
+
+  // NEW: Perform z-score normalization on the heatmap matrix
+  function zScoreNormalization(matrix) {
+    return matrix.map(row => {
+      const validValues = row.filter(v => v !== null);
+      const mean = validValues.reduce((a, b) => a + b, 0) / validValues.length;
+      const std = Math.sqrt(validValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / validValues.length);
+      return row.map(v => v !== null ? (v - mean) / (std || 1) : null);
+    });
+  }
+  const normalizedData = zScoreNormalization(heatmapData);
+  const data = [{
+    z: normalizedData,
+    x: files,
+    y: genes,
+    type: 'heatmap',
+    colorscale: 'Viridis'
+  }];
+  // NEW: Adjust color scale using slider value
+  const sliderValue = parseFloat(document.getElementById('colorScaleSlider').value);
+  const allValues = normalizedData.flat().filter(v => v !== null);
+  const zmin = Math.min(...allValues);
+  const zmax = Math.max(...allValues);
+  data[0].zmin = zmin + sliderValue;
+  data[0].zmax = zmax + sliderValue;
+
+      const layout = {
+        title: 'Expression Heatmap',
+        xaxis: { title: 'File/Contrast' },
+        yaxis: { title: 'Gene' },
+        margin: { l: 150, r: 50, b: 100, t: 50 }
+      };
+      Plotly.newPlot('heatmapContainer', data, layout);
+    }
+    
+    document.getElementById('generateHeatmapButton').addEventListener('click', function(){
+      generateHeatmap();
     });
     
     /* -------------------- Processing Site Motifs (FASTA/SVG Viewer) Code -------------------- */
