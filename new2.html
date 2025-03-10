@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>arCOG Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #121212;
+            margin: 20px;
+            color: #e0e0e0;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+
+        .sidebar {
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
+        }
+
+        .sidebar h2 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .table-container {
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            height: 50vh;
+            overflow: auto;
+        }
+
+        .plot-container {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            height: 40vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        select,
+        button,
+        input[type="file"] {
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #222;
+            border-color: #777;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #555;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #2e2e2e;
+            cursor: pointer;
+            position: relative;
+        }
+
+        th.sortable {
+            position: relative;
+            padding-right: 20px;
+        }
+
+        th.sortable:after {
+            content: "▲▼";
+            display: inline-block;
+            margin-left: 5px;
+            font-size: 0.7em;
+            position: absolute;
+            right: 8px;
+            color: #e0e0e0;
+            pointer-events: none;
+        }
+
+        th.sortable:after {
+            content: "▲▼";
+            display: inline-block;
+            margin-left: 5px;
+            font-size: 0.7em;
+            position: absolute;
+            right: 8px;
+            color: #e0e0e0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>arCOG Analysis</h1>
+
+    <div class="container">
+        <div class="sidebar">
+            <h2>Select Organism</h2>
+            <input type="text" id="organismInput" list="organismList" placeholder="Type organism name" onchange="organismChangedByInput()">
+            <datalist id="organismList"></datalist>
+            
+            <h2>Select RefSeq</h2>
+            <input type="text" id="refseqInput" list="refseqList" placeholder="Type RefSeq" onchange="refseqChanged()">
+            <datalist id="refseqList"></datalist>
+            
+            <h2>Select Assembly</h2>
+            <input type="text" id="assemblyInput" list="assemblyList" placeholder="Type Assembly" onchange="assemblyChanged()">
+            <datalist id="assemblyList"></datalist>
+            
+
+
+
+            <h2>Annotation Code</h2>
+            <select id="annotationFilter" multiple size="5">
+            </select>
+            <button onclick="generateTable()">Generate Table</button>
+
+            <h2>Load Expression Data</h2>
+            <input type="file" id="expressionInput" accept=".txt,.tsv,.tab,.csv" title="Load Expression Table">
+
+            <button onclick="generateBubbleChart()">Plot arCOGs</button>
+            <button onclick="exportPlot()">Export Plot</button>
+            <button onclick="exportCurrentTable()">Export Current Table</button>
+        </div>
+
+        <div class="content">
+            <div class="table-container">
+                <h2>Results Table</h2>
+                <div id="resultTable"></div>
+            </div>
+
+            <div class="plot-container">
+                <canvas id="chartCanvas" style="width:100%; height:100%;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let nameTableData = [];
+        let gffGenes = [];
+        let geneCodeData = {};
+        let sulfoCog2ar = {};
+        let arCOGNames = {};
+        let uniqueAnnotationCodes = new Set();
+        let currentTableData = [];
+        let expressionData = [];
+
+        window.onload = async function () {
+            try {
+                const response = await fetch('arcogs/name_table.txt');
+                const text = await response.text();
+                parseNameTable(text);
+            } catch (err) {
+                console.error("Error loading name_table.txt:", err);
+            }
+
+            try {
+                const [sulfoResponse, arCOGResponse] = await Promise.all([
+                    fetch('arcogs/Sulfo_cog2ar.txt'),
+                    fetch('arcogs/arCOG_names_220807.txt')
+                ]);
+                const sulfoText = await sulfoResponse.text();
+                const arCOGText = await arCOGResponse.text();
+                parseSulfoCog2ar(sulfoText);
+                parseArCOGNames(arCOGText);
+                populateAnnotationFilter();
+            } catch (err) {
+                console.error("Error loading lookup files:", err);
+            }
+        };
+
+        function parseNameTable(text) {
+  const lines = text.trim().split('\n');
+  const organismList = document.getElementById('organismList');
+  const refseqList = document.getElementById('refseqList');
+  const assemblyList = document.getElementById('assemblyList');
+  
+  lines.forEach(line => {
+    const parts = line.split('\t');
+    if (parts.length >= 3) {
+      nameTableData.push({ acc: parts[0], asm: parts[1], name: parts[2] });
+      
+      const orgOption = document.createElement('option');
+      orgOption.value = parts[2];
+      organismList.appendChild(orgOption);
+      
+      const refseqOption = document.createElement('option');
+      refseqOption.value = parts[0];
+      refseqList.appendChild(refseqOption);
+      
+      const asmOption = document.createElement('option');
+      asmOption.value = parts[1];
+      assemblyList.appendChild(asmOption);
+    }
+  });
+}
+
+        function organismChangedByInput() {
+  const orgInput = document.getElementById('organismInput').value;
+  const organism = nameTableData.find(o => o.name.toLowerCase() === orgInput.toLowerCase());
+  if (!organism) {
+    alert("Organism not found. Please select a valid organism from the suggestions.");
+    return;
+  }
+  if (!confirm("Selecting a new organism will reset all data. Continue?")) {
+    return;
+  }
+  // Update the other inputs with corresponding values
+  document.getElementById('refseqInput').value = organism.acc;
+  document.getElementById('assemblyInput').value = organism.asm;
+  loadOrganismData(organism.acc);
+}
+
+
+
+function refseqChanged() {
+  const refseqInput = document.getElementById('refseqInput').value;
+  const organism = nameTableData.find(o => o.acc.toLowerCase() === refseqInput.toLowerCase());
+  if (!organism) {
+    alert("RefSeq not found. Please select a valid RefSeq from the suggestions.");
+    return;
+  }
+  if (!confirm("Selecting a new RefSeq will reset all data. Continue?")) {
+    return;
+  }
+  // Update the other two inputs
+  document.getElementById('organismInput').value = organism.name;
+  document.getElementById('assemblyInput').value = organism.asm;
+  loadOrganismData(organism.acc);
+}
+
+function assemblyChanged() {
+  const assemblyInput = document.getElementById('assemblyInput').value;
+  const organism = nameTableData.find(o => o.asm.toLowerCase() === assemblyInput.toLowerCase());
+  if (!organism) {
+    alert("Assembly not found. Please select a valid Assembly from the suggestions.");
+    return;
+  }
+  if (!confirm("Selecting a new Assembly will reset all data. Continue?")) {
+    return;
+  }
+  // Update the other two inputs
+  document.getElementById('organismInput').value = organism.name;
+  document.getElementById('refseqInput').value = organism.acc;
+  loadOrganismData(organism.acc);
+}
+
+
+        function loadOrganismData(acc) {
+            // Clear existing data
+            gffGenes = [];
+            geneCodeData = {};
+
+            // Load the GFF and gene code files using the organism's acc
+            fetch('arcogs/GFFs/' + acc + '.gff')
+                .then(response => response.text())
+                .then(parseGFF)
+                .catch(err => console.error("Error loading GFF file for " + acc, err));
+
+            fetch('arcogs/GeneCode-toArCOG/' + acc + '.txt')
+                .then(response => response.text())
+                .then(parseGeneCodeTable)
+                .catch(err => console.error("Error loading gene code table for " + acc, err));
+
+            document.getElementById('resultTable').innerHTML = "";
+        }
+
+        function organismChangedByInput() {
+  const orgInput = document.getElementById('organismInput').value;
+  const organism = nameTableData.find(o => o.name.toLowerCase() === orgInput.toLowerCase());
+  if (!organism) {
+    alert("Organism not found. Please select a valid organism from the suggestions.");
+    return;
+  }
+  if (!confirm("Selecting a new organism will reset all data. Continue?")) {
+    return;
+  }
+  // Update the other two fields with values from the same row.
+  document.getElementById('refseqInput').value = organism.acc;
+  document.getElementById('assemblyInput').value = organism.asm;
+  
+  // Load the organism data using the organism's acc value.
+  loadOrganismData(organism.acc);
+}
+
+
+
+        function organismChanged() {
+            const acc = document.getElementById('organismSelect').value;
+            if (!acc) return;
+
+            gffGenes = [];
+            geneCodeData = {};
+
+            fetch('arcogs/GFFs/' + acc + '.gff')
+                .then(response => response.text())
+                .then(parseGFF)
+                .catch(err => console.error("Error loading GFF file for " + acc, err));
+
+            fetch('arcogs/GeneCode-toArCOG/' + acc + '.txt')
+                .then(response => response.text())
+                .then(parseGeneCodeTable)
+                .catch(err => console.error("Error loading gene code table for " + acc, err));
+
+            document.getElementById('resultTable').innerHTML = "";
+        }
+
+        function parseGFF(text) {
+            gffGenes = text.split('\n')
+                .filter(line => !line.startsWith('#') && line.includes('\tgene\t'))
+                .map(line => parseAttributes(line.split('\t')[8]));
+        }
+
+        function parseAttributes(attrString) {
+            const attrs = {};
+            attrString.split(';').forEach(part => {
+                const [key, value] = part.split('=');
+                if (key && value) {
+                    attrs[key.trim()] = value.trim();
+                }
+            });
+            return attrs;
+        }
+
+        function parseGeneCodeTable(text) {
+            geneCodeData = {};
+            text.trim().split('\n').forEach(line => {
+                const parts = line.split(/\s+/);
+                if (parts.length >= 7) geneCodeData[parts[0]] = parts[6];
+            });
+        }
+
+        function parseSulfoCog2ar(text) {
+            sulfoCog2ar = {};
+            text.trim().split('\n').forEach(line => {
+                const parts = line.split(/\s+/);
+                if (parts.length >= 5) sulfoCog2ar[parts[0]] = parts[4];
+            });
+        }
+
+        function parseArCOGNames(text) {
+            arCOGNames = {};
+            uniqueAnnotationCodes.clear();
+            text.trim().split('\n').slice(1).forEach(line => {
+                const parts = line.split(/\s+/);
+                if (parts.length >= 4) {
+                    arCOGNames[parts[0]] = { annotationCode: parts[1], product: parts[2], function: parts.slice(3).join(' ') };
+                    uniqueAnnotationCodes.add(parts[1]);
+                }
+            });
+        }
+
+        function populateAnnotationFilter() {
+            const filterSelect = document.getElementById('annotationFilter');
+            filterSelect.innerHTML = "";
+
+            const allOption = document.createElement('option');
+            allOption.value = "All";
+            allOption.text = "All";
+            allOption.addEventListener('click', function () {
+                filterSelect.selectedIndex = -1;
+                generateTable();
+            });
+            filterSelect.appendChild(allOption);
+
+            uniqueAnnotationCodes.forEach(code => {
+                const option = document.createElement('option');
+                option.value = code;
+                option.text = code;
+                filterSelect.appendChild(option);
+            });
+        }
+
+        function generateTable() {
+            const selectedAnnotations = Array.from(
+                document.getElementById('annotationFilter').selectedOptions
+            ).map(opt => opt.value);
+
+            let tableHTML = '<table id="dataTable"><thead><tr>';
+            const columns = ['Gene', 'Sulfo Code', 'arCOG', 'Code', 'Product', 'Function', 'log2FoldChange', 'p-value'];
+            columns.forEach((col, index) => {
+                tableHTML += `<th class="sortable" onclick="sortTable(${index})">${col}</th>`;
+            });
+
+            tableHTML += '</tr></thead><tbody>';
+            currentTableData = [];
+
+            gffGenes.forEach(gene => {
+                const locus = gene['locus_tag'] || 'N/A';
+                const sulfoCode = geneCodeData[locus] || 'N/A';
+                const arCOGCode = sulfoCog2ar[sulfoCode] || 'N/A';
+                const annotationCode = arCOGNames[arCOGCode]?.annotationCode || 'N/A';
+                const product = arCOGNames[arCOGCode]?.product || 'N/A';
+                const func = arCOGNames[arCOGCode]?.function || 'N/A';
+
+                let log2FC = "N/A";
+                let pval = "N/A";
+                if (expressionData.length > 0) {
+                    const row = expressionData.find(r => r.Gene && r.Gene.toUpperCase() === locus.toUpperCase());
+                    if (row) {
+                        log2FC = row.log2FoldChange;
+                        pval = row.pvalue;
+                    }
+                }
+
+                if (selectedAnnotations.length > 0 && !selectedAnnotations.includes(annotationCode)) {
+                    return;
+                }
+
+                const rowData = [locus, sulfoCode, arCOGCode, annotationCode, product, func, log2FC, pval];
+                currentTableData.push(rowData);
+
+                tableHTML += "<tr>";
+                rowData.forEach(cell => {
+                    tableHTML += `<td>${cell}</td>`;
+                });
+                tableHTML += "</tr>";
+            });
+
+            tableHTML += '</tbody></table>';
+            document.getElementById('resultTable').innerHTML = tableHTML;
+        }
+
+        let sortAsc = true;
+        function sortTable(columnIndex) {
+            currentTableData.sort((a, b) => {
+                let valA = a[columnIndex];
+                let valB = b[columnIndex];
+
+                const numA = parseFloat(valA);
+                const numB = parseFloat(valB);
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    valA = numA;
+                    valB = numB;
+                } else {
+                    valA = valA.toString().toUpperCase();
+                    valB = valB.toString().toUpperCase();
+                }
+                if (valA < valB) return sortAsc ? -1 : 1;
+                if (valA > valB) return sortAsc ? 1 : -1;
+                return 0;
+            });
+            sortAsc = !sortAsc;
+
+            let tableHTML = '<thead><tr>';
+            const columns = ['Gene', 'Sulfo Code', 'arCOG', 'Code', 'Product', 'Function', 'log2FoldChange', 'p-value'];
+            columns.forEach((col, index) => {
+                tableHTML += `<th class="sortable" onclick="sortTable(${index})">${col}</th>`;
+            });
+
+            tableHTML += '</tr></thead><tbody>';
+            currentTableData.forEach(rowData => {
+                tableHTML += "<tr>";
+                rowData.forEach(cell => {
+                    tableHTML += `<td>${cell}</td>`;
+                });
+                tableHTML += "</tr>";
+            });
+            document.getElementById('dataTable').innerHTML = tableHTML;
+        }
+
+        function classifyGenes() {
+            if (expressionData.length > 0) {
+                gffGenes.forEach(gene => {
+                    const locus = gene['locus_tag'] || 'N/A';
+                    const row = expressionData.find(r => r.Gene && r.Gene.toUpperCase() === locus.toUpperCase());
+                    if (row) {
+                        gene.log2FoldChange = parseFloat(row.log2FoldChange);
+                        gene.pvalue = parseFloat(row.pvalue);
+                    } else {
+                        gene.log2FoldChange = "N/A";
+                        gene.pvalue = "N/A";
+                    }
+                });
+            } else {
+                gffGenes.forEach(gene => {
+                    gene.log2FoldChange = Math.random() * 4 - 2;
+                    gene.pvalue = Math.random();
+                });
+            }
+
+            const groups = {};
+            gffGenes.forEach(gene => {
+                const locus = gene['locus_tag'] || 'N/A';
+                const sulfoCode = geneCodeData[locus] || 'N/A';
+                const arCOGCode = sulfoCog2ar[sulfoCode] || 'N/A';
+                const annotationCode = arCOGNames[arCOGCode]?.annotationCode || 'N/A';
+                if (annotationCode === 'N/A') return;
+                if (!groups[annotationCode]) {
+                    groups[annotationCode] = { up: 0, neutral: 0, down: 0 };
+                }
+                let classification = "neutral";
+                const fc = parseFloat(gene.log2FoldChange);
+                const p = parseFloat(gene.pvalue);
+                if (!isNaN(fc) && !isNaN(p)) {
+                    if (fc >= 1 && p <= 0.05) classification = "up";
+                    else if (fc <= -1 && p <= 0.05) classification = "down";
+                }
+                groups[annotationCode][classification]++;
+            });
+            return groups;
+        }
+        function exportCurrentTable() {
+            if (!currentTableData || currentTableData.length === 0) {
+                alert("No table data available to export.");
+                return;
+            }
+
+            let organism = document.getElementById('organismSelect').value;
+            if (!organism) {
+                alert("Please select an organism.");
+                return;
+            }
+            if (organism.indexOf('.') !== -1) {
+                organism = organism.split('.')[0];
+            }
+
+            const selectedOptions = Array.from(document.getElementById('annotationFilter').selectedOptions)
+                .map(opt => opt.value);
+            let annotationPart = "";
+            if (selectedOptions.length === 0) {
+                annotationPart = "ALL";
+            } else {
+                annotationPart = selectedOptions.join('_');
+            }
+
+            const fileName = organism + "_" + annotationPart + ".tsv";
+
+            const headers = ['Gene', 'Sulfo Code', 'arCOG', 'Code', 'Product', 'Function', 'log2FoldChange', 'p-value'];
+            let tsv = headers.join("\t") + "\n";
+            currentTableData.forEach(row => {
+                tsv += row.join("\t") + "\n";
+            });
+
+            const blob = new Blob([tsv], { type: 'text/tab-separated-values;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            link.click();
+        }
+
+
+        function generateBubbleChart() {
+            if (expressionData.length === 0) {
+                alert("No expression data loaded");
+                return;
+            }
+
+            const groups = classifyGenes();
+            const scale = 20;
+            const upData = [];
+            const neutralData = [];
+            const downData = [];
+
+            Object.keys(groups).forEach(code => {
+                const group = groups[code];
+                const total = group.up + group.neutral + group.down;
+                if (total === 0) return;
+
+                upData.push({
+                    x: code,
+                    y: 2,
+                    r: (group.up / total) * scale,
+                    details: `Counts: ${group.up}`
+                });
+                neutralData.push({
+                    x: code,
+                    y: 1,
+                    r: (group.neutral / total) * scale,
+                    details: `Counts: ${group.neutral}`
+                });
+                downData.push({
+                    x: code,
+                    y: 0,
+                    r: (group.down / total) * scale,
+                    details: `Counts: ${group.down}`
+                });
+            });
+
+            const chartBackgroundPlugin = {
+                id: 'chartBackground',
+                beforeDraw: (chart) => {
+                    const { ctx, chartArea } = chart;
+                    ctx.save();
+                    ctx.fillStyle = '#f5efef';
+                    ctx.fillRect(chartArea.left, chartArea.top, chartArea.width, chartArea.height);
+                    ctx.restore();
+                }
+            };
+
+            const ctx = document.getElementById('chartCanvas').getContext('2d');
+            if (window.myBubbleChart) {
+                window.myBubbleChart.destroy();
+            }
+
+            window.myBubbleChart = new Chart(ctx, {
+                type: 'bubble',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Upregulated',
+                            data: upData,
+                            backgroundColor: '#0072B2',
+                            borderColor: '#000',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Not-affected',
+                            data: neutralData,
+                            backgroundColor: '#999999',
+                            borderColor: '#000',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Downregulated',
+                            data: downData,
+                            backgroundColor: '#D55E00',
+                            borderColor: '#000',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: { left: 10, right: 10, top: 10, bottom: 10 }
+                    },
+                    scales: {
+                        x: {
+                            type: 'category',
+                            offset: true,
+                            title: {
+                                display: true,
+                                text: 'Code',
+                                color: '#000',
+                                font: {
+                                    size: 14,
+                                    family: 'Helvetica Neue, Arial, sans-serif'
+                                }
+                            },
+                            ticks: {
+                                color: '#000',
+                                autoSkip: false,
+                                maxRotation: 90,
+                                minRotation: 45
+                            },
+                            grid: {
+                                color: '#e0e0e0',
+                                borderColor: '#000'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            min: -0.5,
+                            max: 2.5,
+                            title: {
+                                display: false,
+                                text: 'Classification',
+                                color: '#000',
+                                font: {
+                                    size: 14,
+                                    family: 'Helvetica Neue, Arial, sans-serif'
+                                }
+                            },
+                            ticks: {
+                                color: '#000',
+                                stepSize: 1,
+                                callback: function (value) {
+                                    if (value === 2) return 'Upregulated';
+                                    if (value === 1) return 'Neutral';
+                                    if (value === 0) return 'Downregulated';
+                                    return '';
+                                }
+                            },
+                            grid: {
+                                color: '#e0e0e0',
+                                borderColor: '#000'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#000',
+                                font: {
+                                    size: 14,
+                                    family: 'Helvetica Neue, Arial, sans-serif'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return context.raw.details;
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [chartBackgroundPlugin]
+            });
+        }
+        function exportPlot() {
+            if (window.myBubbleChart) {
+                const canvas = document.getElementById('chartCanvas');
+                const scaleFactor = 3;
+
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = canvas.width * scaleFactor;
+                exportCanvas.height = canvas.height * scaleFactor;
+                const exportCtx = exportCanvas.getContext('2d');
+
+                exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+                exportCtx.drawImage(canvas, 0, 0, exportCanvas.width, exportCanvas.height);
+
+                const url = exportCanvas.toDataURL('image/png');
+
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'arCOG_bubble_plot.png';
+                link.click();
+            } else {
+                alert("No chart available to export.");
+            }
+        }
+
+
+
+        document.getElementById('expressionInput').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                Papa.parse(file, {
+                    delimiter: "",
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function (results) {
+                        expressionData = results.data;
+                        console.log("Expression data loaded:", expressionData);
+                    },
+                    error: function (err) {
+                        console.error("Error parsing expression file:", err);
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>

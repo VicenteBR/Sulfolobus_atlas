@@ -59,7 +59,7 @@
       color: #f0f0f0;
     }
     .container {
-      max-width: 1100px;
+      max-width: 1240px;
       margin: auto;
       background: #1e1e1e;
       padding: 30px;
@@ -330,27 +330,28 @@
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       gap: 10px;
       padding: 10px 0;
     }
     .arCOG-left {
       display: flex;
-      align-items: center;
-      gap: 5px;
+      flex-direction: column;
     }
     .arCOG-left label {
       font-size: 14px;
       font-weight: bold;
+      margin-bottom: 2px;
     }
-    /* New div for the multi‑select dropdown placed between left and right */
     .arCOG-middle {
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      align-items: flex-start;
     }
     .arCOG-middle label {
       font-size: 14px;
       font-weight: bold;
+      margin-bottom: 2px;
     }
     .arCOG-middle select {
       padding: 6px;
@@ -360,6 +361,8 @@
       background-color: #222;
       color: #e0e0e0;
       outline: none;
+      width: 350px;
+      height: 200px;
     }
     .arCOG-right {
       display: flex;
@@ -477,6 +480,28 @@
       </div>
       <!-- Chart for asRNA/mRNA Pairs -->
       <canvas id="pairsChartCanvas"></canvas>
+      <div id="pairsLegend" style="margin-top: 10px; display: flex; gap: 15px; justify-content: center;">
+        <!-- Gene (p ≤ 0.05) -->
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <div style="width: 20px; height: 20px; background-color: #4fc3f7; border: 1px solid #fff;"></div>
+          <span>Gene (p ≤ 0.05)</span>
+        </div>
+        <!-- Gene (p > 0.05) -->
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <div style="width: 20px; height: 20px; background-color: #a9e3f7; border: 1px solid #fff;"></div>
+          <span>Gene (p > 0.05)</span>
+        </div>
+        <!-- asRNA (p ≤ 0.05) -->
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <div style="width: 20px; height: 20px; background-color: #ffb74d; border: 1px solid #fff;"></div>
+          <span>asRNA (p ≤ 0.05)</span>
+        </div>
+        <!-- asRNA (p > 0.05) -->
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <div style="width: 20px; height: 20px; background-color: #ffd8a5; border: 1px solid #fff;"></div>
+          <span>asRNA (p > 0.05)</span>
+        </div>
+      </div>
       <!-- Save and Export buttons for asRNA/mRNA pairs -->
       <button id="savePairsChartButton" class="save-chart-btn">Save PNG</button>
       <button id="exportPairsTableButton" class="save-chart-btn">Export as a Table</button>
@@ -588,10 +613,11 @@
             <label for="arcog_annotationDropdown">Select functional class:</label>
             <select id="arcog_annotationDropdown" multiple style="width: 350px; height: 200px;"></select>
           </div>
-          <div class="arCOG-right" style="display: flex; flex-direction: column;">
+          <div class="arCOG-right" style="display: flex; flex-direction: column; gap: 5px;">
             <button id="arcog_filterBtn">Generate Table</button>
             <button id="arcog_plotBtn">Generate Plot</button>
             <button id="arcog_exportBtn">Export Plot</button>
+            <button id="arcog_exportTableBtn">Export Table</button>
             <button id="arcog_clearBtn">Clear All</button>
           </div>
         </div>
@@ -807,6 +833,7 @@
         return mapping ? mapping : null;
       }
       
+      // Build global mapping and now add log2FoldChange and pvalue from the DESeq2 data if available.
       function arcog_buildGlobalMapping() {
         globalMapping = [];
         gffData.forEach(gene => {
@@ -817,13 +844,24 @@
           const arCOGCode = arcog_getArCOGCode(sulfoCode);
           if (!arCOGCode) return;
           const annotation = arcog_getArCOGAnnotation(arCOGCode);
+          // Try to get log2FoldChange and pvalue from the first loaded DESeq2 file
+          let log2FC = "N/A", pval = "N/A";
+          if(deSeq2Files.length > 0) {
+            let deRow = deSeq2Files[0].find(row => row.Gene && (row.Gene.toUpperCase() === locus.toUpperCase() || row.Gene.toUpperCase().includes(locus.toUpperCase())));
+            if(deRow){
+              log2FC = deRow.log2FoldChange;
+              pval = deRow.pvalue;
+            }
+          }
           globalMapping.push({
             "Gene (locus_tag)": locus,
             "Sulfo Code": sulfoCode,
             "Mapped arCOG Code": arCOGCode,
             "Annotation Code": annotation ? annotation.Code : "N/A",
             "Product": annotation ? annotation.Product : "N/A",
-            "Function": annotation ? annotation.Function : "N/A"
+            "Function": annotation ? annotation.Function : "N/A",
+            "log2FoldChange": log2FC,
+            "pvalue": pval
           });
         });
         arcog_populateDropdown();
@@ -845,6 +883,7 @@
         });
       }
       
+      // Display results in the arCOG analysis table, including log2FoldChange and pvalue
       function arcog_displayResults(results) {
         const table = document.getElementById('arcog_resultsTable');
         const headerRow = document.getElementById('arcog_tableHeader');
@@ -856,6 +895,7 @@
           table.style.display = "none";
           return;
         }
+        // Ensure the header includes new columns
         const columns = Object.keys(results[0]);
         columns.forEach(col => {
           const th = document.createElement('th');
@@ -889,6 +929,28 @@
         }
         document.getElementById('arcog_filterMessage').textContent = filtered.length + " gene(s) found.";
         arcog_displayResults(filtered);
+      }
+      
+      // New function to export the arCOG results table as a TSV file
+      function arcog_exportTable() {
+        const table = document.getElementById('arcog_resultsTable');
+        if (table.style.display === "none") {
+          alert("No table available to export.");
+          return;
+        }
+        let tsv = "";
+        const headers = Array.from(table.querySelectorAll("th")).map(th => th.textContent);
+        tsv += headers.join("\t") + "\n";
+        const rows = table.querySelectorAll("tbody tr");
+        rows.forEach(row => {
+          const cells = Array.from(row.querySelectorAll("td")).map(td => td.textContent);
+          tsv += cells.join("\t") + "\n";
+        });
+        const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8;" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "arcog_analysis_table.tsv";
+        a.click();
       }
       
       function arcog_generateBubblePlot() {
@@ -968,21 +1030,21 @@
           data: {
             datasets: [
               {
-                label: "Upregulated (+1)",
+                label: "Upregulated",
                 data: upData,
                 backgroundColor: "#0072B2",
                 borderColor: "#000",
                 borderWidth: 1
               },
               {
-                label: "Not-affected (0)",
+                label: "Not-affected",
                 data: neutralData,
                 backgroundColor: "#999999",
                 borderColor: "#000",
                 borderWidth: 1
               },
               {
-                label: "Downregulated (-1)",
+                label: "Downregulated",
                 data: downData,
                 backgroundColor: "#D55E00",
                 borderColor: "#000",
@@ -1007,7 +1069,8 @@
                 offset: true,
                 title: {
                   display: true,
-                  text: 'Annotation Code'
+                  text: 'Annotation Code',
+                  color: "#000000"
                 },
                 ticks: {
                   autoSkip: false,
@@ -1022,8 +1085,9 @@
                 min: -0.5,
                 max: 2.5,
                 title: {
-                  display: true,
-                  text: dataset[0]?.fileName || "DESeq2 File"
+                  display: false,
+                  text: dataset[0]?.fileName || "DESeq2 File",
+                  color: "#000000"
                 },
                 ticks: {
                   stepSize: 1,
@@ -1033,7 +1097,8 @@
                     if (value === 0) return "-1";
                     return "";
                   }
-                }
+                },
+                color: "#000000"
               }
             },
             plugins: {
@@ -1043,7 +1108,7 @@
                   font: {
                     size: 14
                   },
-                  color: '#e0e0e0'
+                  color: '#000000'
                 }
               },
               tooltip: {
@@ -1091,12 +1156,15 @@
       document.getElementById('arcog_filterBtn').addEventListener('click', arcog_filterByAnnotationCode);
       document.getElementById('arcog_plotBtn').addEventListener('click', arcog_generateBubblePlot);
       document.getElementById('arcog_exportBtn').addEventListener('click', arcog_exportPlot);
+      document.getElementById('arcog_exportTableBtn').addEventListener('click', arcog_exportTable);
       document.getElementById('arcog_clearBtn').addEventListener('click', arcog_clearAll);
       document.getElementById('arcog_deseq2Input').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
           loadDESeq2File(file).then(() => {
             document.getElementById('arcog_searchMessage').textContent = "DESeq2 data loaded successfully.";
+            // Rebuild global mapping so that log2FoldChange and pvalue are added
+            arcog_buildGlobalMapping();
           });
         }
       });
@@ -1469,7 +1537,7 @@
                   }
                 }
               },
-              legend: { display: true, labels: { color: '#e0e0e0' } }
+              legend: { display: false, labels: { color: '#e0e0e0' } }
             },
             animation: { duration: 800, easing: 'easeOutQuart' }
           }
@@ -1483,12 +1551,7 @@
             R = (num >> 16) + amt,
             G = (num >> 8 & 0x00FF) + amt,
             B = (num & 0x0000FF) + amt;
-        return "#" + (
-          0x1000000 +
-          (R<255?R<1?0:R:255)*0x10000 +
-          (G<255?G<1?0:G:255)*0x100 +
-          (B<255?B<1?0:B:255)
-        ).toString(16).slice(1);
+        return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1);
       }
       
       function darkenColor(color, percent) {

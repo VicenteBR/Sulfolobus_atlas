@@ -1,0 +1,52 @@
+GCF_000012285.1	ASM1228v1	Sulfolobus acidocaldarius DSM 639
+GCF_000016605.1	ASM1660v1	Metallosphaera sedula DSM 5348
+GCF_000011205.1	ASM1120v1	Sulfurisphaera tokodaii str. 7
+GCF_000204925.1	ASM20492v1	Metallosphaera cuprina Ar-4
+GCA_000022445.1	ASM2244v1	Saccharolobus islandicus M.16.4
+GCF_000213215.1	ASM21321v1	Acidianus hospitalis W1
+GCA_002116695.1	ASM211669v1	Acidianus manzaensis
+GCF_000243315.1	ASM24331v1	Metallosphaera yellowstonensis MK1
+GCF_000632495.1	AciCop1.0	Candidatus Acidianus copahuensis
+GCF_000022485.1	ASM2248v1	Saccharolobus islandicus Y.N.15.51
+GCF_900079115.1	SSOP1	Saccharolobus solfataricus
+GCF_000189555.1	ASM18955v1	Saccharolobus islandicus REY15A
+GCF_000364745.1	ASM36474v1	Saccharolobus islandicus LAL14/1
+GCF_000022385.1	ASM2238v1	Saccharolobus islandicus L.S.2.15
+GCF_000022465.1	ASM2246v1	Saccharolobus islandicus Y.G.57.14
+GCF_000022425.1	ASM2242v1	Saccharolobus islandicus M.16.27
+GCF_000245215.1	ASM24521v2	Saccharolobus islandicus M.16.40
+GCA_000189575.1	ASM18957v1	Saccharolobus islandicus HVE10/4
+GCF_000245095.1	ASM24509v2	Saccharolobus islandicus M.16.2
+GCF_000245275.1	ASM24527v2	Saccharolobus islandicus M.16.47
+GCF_000022405.1	ASM2240v1	Saccharolobus islandicus M.14.25
+GCF_000245175.1	ASM24517v2	Saccharolobus islandicus M.16.23
+GCF_000245235.1	ASM24523v2	Saccharolobus islandicus M.16.43
+GCF_000968435.1	ASM96843v1	Saccharolobus solfataricus
+GCF_000968395.1	ASM96839v1	Saccharolobus solfataricus
+GCF_000968355.1	ASM96835v1	Saccharolobus solfataricus
+GCF_002215485.1	ASM221548v1	Sulfolobus acidocaldarius
+GCF_002215445.1	ASM221544v1	Sulfolobus acidocaldarius
+GCF_002215525.1	ASM221552v1	Sulfolobus acidocaldarius
+GCF_002215565.1	ASM221556v1	Sulfolobus acidocaldarius
+GCF_002215405.1	ASM221540v1	Sulfolobus acidocaldarius
+GCF_000007005.1	ASM700v1	Saccharolobus solfataricus P2
+GCF_000024745.1	ASM2474v1	Saccharolobus solfataricus 98/2
+GCF_000338775.1	ASM33877v1	Sulfolobus acidocaldarius Ron12/I
+GCF_000340315.1	ASM34031v1	Sulfolobus acidocaldarius N8
+GCF_001266655.1	ASM126665v1	Metallosphaera sedula
+GCF_001266715.1	ASM126671v1	Metallosphaera sedula
+GCF_001266735.1	ASM126673v1	Metallosphaera sedula
+GCF_001266695.1	ASM126669v1	Metallosphaera sedula
+GCF_001266675.1	ASM126667v1	Metallosphaera sedula
+GCF_001719125.1	ASM171912v1	Saccharolobus sp. A20
+GCF_000024305.1	ASM2430v1	Saccharolobus islandicus L.D.8.5
+GCF_001481635.1	ASM148163v1	Sulfolobus acidocaldarius
+GCF_000747605.1	ASM74760v1	Metallosphaera sedula
+GCF_001316085.1	ASM131608v1	Sulfuracidifex tepidarius
+GCF_000245255.1	ASM24525v2	Saccharolobus islandicus M.16.46
+GCF_000245135.1	ASM24513v2	Saccharolobus islandicus M.16.13
+GCF_000245195.1	ASM24519v2	Saccharolobus islandicus M.16.30
+GCF_000245115.1	ASM24511v2	Saccharolobus islandicus M.16.12
+GCF_000245155.1	ASM24515v2	Saccharolobus islandicus M.16.22
+GCA_000508305.1	ASM50830v1	Sulfolobus acidocaldarius SUSAZ
+GCA_000565255.1	Az1	Candidatus Aramenus sulfurataquae
