@@ -1699,48 +1699,64 @@
       }
 
       function updateTableList() {
-        const tableListDiv = document.getElementById('tableList');
-        const tableDisplayDiv = document.getElementById('tableDisplay');
-        tableListDiv.innerHTML = "";
-        if (dataFiles.length === 0) {
-          tableListDiv.innerHTML = "<p>No files loaded.</p>";
-          tableDisplayDiv.innerHTML = "";
-          return;
-        }
-        const tbl = document.createElement('table');
-        const headerRow = document.createElement('tr');
-        ['Filename', 'Actions'].forEach(text => {
-          const th = document.createElement('th');
-          th.textContent = text;
-          headerRow.appendChild(th);
-        });
-        tbl.appendChild(headerRow);
-        dataFiles.forEach(fileObj => {
-          const row = document.createElement('tr');
-          const nameCell = document.createElement('td');
-          nameCell.textContent = fileObj.filename;
-          const actionsCell = document.createElement('td');
-          const viewBtn = document.createElement('button');
-          viewBtn.textContent = "View";
-          viewBtn.style.width = "80px";
-          viewBtn.addEventListener('click', function () {
-            viewTable(fileObj.filename);
-          });
-          const removeBtn = document.createElement('button');
-          removeBtn.textContent = "Remove";
-          removeBtn.style.width = "80px";
-          removeBtn.addEventListener('click', function () {
-            removeFile(fileObj.filename);
-          });
-          actionsCell.appendChild(viewBtn);
-          actionsCell.appendChild(document.createTextNode(" "));
-          actionsCell.appendChild(removeBtn);
-          row.appendChild(nameCell);
-          row.appendChild(actionsCell);
-          tbl.appendChild(row);
-        });
-        tableListDiv.appendChild(tbl);
-      }
+  const tableListDiv = document.getElementById('tableList');
+  tableListDiv.innerHTML = "";
+  if (dataFiles.length === 0) {
+    tableListDiv.innerHTML = "<p>No files loaded.</p>";
+    return;
+  }
+  const tbl = document.createElement('table');
+  const headerRow = document.createElement('tr');
+  // Add three columns: Select, Filename, and Actions.
+  ['Select', 'Filename', 'Actions'].forEach(text => {
+    const th = document.createElement('th');
+    th.textContent = text;
+    headerRow.appendChild(th);
+  });
+  tbl.appendChild(headerRow);
+  dataFiles.forEach(fileObj => {
+    const row = document.createElement('tr');
+    
+    // Checkbox cell for selection.
+    const selectCell = document.createElement('td');
+    const checkbox = document.createElement('input');
+    checkbox.type = "checkbox";
+    checkbox.classList.add("file-select-checkbox");
+    checkbox.dataset.filename = fileObj.filename;
+    // Optionally, set it checked by default.
+    checkbox.checked = true;
+    selectCell.appendChild(checkbox);
+    row.appendChild(selectCell);
+    
+    // Filename cell.
+    const nameCell = document.createElement('td');
+    nameCell.textContent = fileObj.filename;
+    row.appendChild(nameCell);
+    
+    // Actions cell (View/Remove).
+    const actionsCell = document.createElement('td');
+    const viewBtn = document.createElement('button');
+    viewBtn.textContent = "View";
+    viewBtn.style.width = "80px";
+    viewBtn.addEventListener('click', function() {
+      viewTable(fileObj.filename);
+    });
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = "Remove";
+    removeBtn.style.width = "80px";
+    removeBtn.addEventListener('click', function() {
+      removeFile(fileObj.filename);
+    });
+    actionsCell.appendChild(viewBtn);
+    actionsCell.appendChild(document.createTextNode(" "));
+    actionsCell.appendChild(removeBtn);
+    row.appendChild(actionsCell);
+    
+    tbl.appendChild(row);
+  });
+  tableListDiv.appendChild(tbl);
+}
+
 
       function removeFile(filename) {
         const tableDisplayDiv = document.getElementById('tableDisplay');
@@ -1811,92 +1827,102 @@
       }
 
       function plotGene(geneName) {
-        const savedScrollPos = window.pageYOffset;
-        const modifiedLabels = dataFiles.map(fileObj => shortenFilename(fileObj.filename));
-
-        const values = [];
-        const colors = [];
-
-        dataFiles.forEach((fileObj, idx) => {
-          const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
-          if (record) {
-            values.push(record.log2FoldChange);
-            colors.push(record.pvalue !== undefined && record.pvalue <= 0.05 ? "#4fc3f7" : "#ffb74d");
+  const savedScrollPos = window.pageYOffset;
+  
+  // Filter dataFiles using the checkboxes in the table list.
+  const selectedFiles = dataFiles.filter(fileObj => {
+    const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
+    return checkbox && checkbox.checked;
+  });
+  
+  // Create a new array with the modified file names from selected files.
+  const modifiedLabels = selectedFiles.map(fileObj => shortenFilename(fileObj.filename));
+  
+  const values = [];
+  const colors = [];
+  
+  // Populate values and colors based on the gene's data in each selected file.
+  selectedFiles.forEach((fileObj, idx) => {
+    const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
+    if (record) {
+      values.push(record.log2FoldChange);
+      colors.push(record.pvalue !== undefined && record.pvalue <= 0.05 ? "#4fc3f7" : "#ffb74d");
+    }
+  });
+  
+  if (modifiedLabels.length === 0 || values.length === 0) {
+    alert("Gene not found in the selected files.");
+    return;
+  }
+  
+  const ctx = document.getElementById('chartCanvas').getContext('2d');
+  if (chart) { chart.destroy(); }
+  
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: modifiedLabels,
+      datasets: [{
+        label: "log2FoldChange",
+        data: values,
+        backgroundColor: colors,
+        borderColor: '#e0e0e0',
+        borderWidth: 1,
+        borderRadius: 4,
+        hoverBackgroundColor: colors.map(c => shadeColor(c, -10))
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'Differential Expression for ' + geneName,
+          font: { size: 20 },
+          color: '#e0e0e0'
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const index = context.dataIndex;
+              const fileObj = selectedFiles.find(f => shortenFilename(f.filename) === modifiedLabels[index]);
+              const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
+              return "log2FoldChange: " + record.log2FoldChange + ", p-value: " + record.pvalue;
+            }
           }
-        });
-
-        if (modifiedLabels.length === 0 || values.length === 0) {
-          alert("Gene not found in the loaded files.");
-          return;
+        },
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { color: '#e0e0e0' },
+          grid: { color: '#555' },
+          title: {
+            display: true,
+            text: "log2FoldChange",
+            font: { size: 16 },
+            color: '#e0e0e0'
+          }
+        },
+        x: {
+          ticks: { color: '#e0e0e0' },
+          grid: { color: '#555' },
+          title: {
+            display: true,
+            text: "File/Contrast",
+            font: { size: 16 },
+            color: '#e0e0e0'
+          }
         }
+      },
+      animation: { duration: 800, easing: 'easeOutQuart' }
+    }
+  });
+  
+  window.scrollTo(0, savedScrollPos);
+}
 
-        const ctx = document.getElementById('chartCanvas').getContext('2d');
-        if (chart) { chart.destroy(); }
-
-        chart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: modifiedLabels,
-            datasets: [{
-              label: "log2FoldChange",
-              data: values,
-              backgroundColor: colors,
-              borderColor: '#e0e0e0',
-              borderWidth: 1,
-              borderRadius: 4,
-              hoverBackgroundColor: colors.map(c => shadeColor(c, -10))
-            }]
-          },
-          options: {
-            responsive: true,
-            plugins: {
-              title: {
-                display: true,
-                text: 'Differential Expression for ' + geneName,
-                font: { size: 20 },
-                color: '#e0e0e0'
-              },
-              tooltip: {
-                callbacks: {
-                  label: function (context) {
-                    const index = context.dataIndex;
-                    const fileObj = dataFiles.find(f => shortenFilename(f.filename) === modifiedLabels[index]);
-                    const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
-                    return "log2FoldChange: " + record.log2FoldChange + ", p-value: " + record.pvalue;
-                  }
-                }
-              },
-              legend: { display: false }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                ticks: { color: '#e0e0e0' },
-                grid: { color: '#555' },
-                title: {
-                  display: true,
-                  text: "log2FoldChange",
-                  font: { size: 16 },
-                  color: '#e0e0e0'
-                }
-              },
-              x: {
-                ticks: { color: '#e0e0e0' },
-                grid: { color: '#555' },
-                title: {
-                  display: true,
-                  text: "File/Contrast",
-                  font: { size: 16 },
-                  color: '#e0e0e0'
-                }
-              }
-            },
-            animation: { duration: 800, easing: 'easeOutQuart' }
-          }
-        });
-
-        window.scrollTo(0, savedScrollPos);
-      }
 
 
       document.getElementById('plotButton').addEventListener('click', function () {
