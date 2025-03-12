@@ -5,7 +5,8 @@
   <meta charset="UTF-8">
   <title>S. acidocaldarius transcriptomic atlas (Brück et al, 2025)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Replace Chart.js with ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/igv/dist/igv.css">
   <style>
@@ -51,12 +52,20 @@
       outline: none;
     }
 
+    .apexcharts-menu,
+    .apexcharts-menu * {
+      color: #000 !important;
+      text-align: center;
+    }
+
+
     /* Base styling */
     body {
       font-family: 'Helvetica Neue', Arial, sans-serif;
       background: #121212;
       margin: 20px;
       color: #e0e0e0;
+      text-align: center;
     }
 
     h1 {
@@ -65,20 +74,45 @@
     }
 
     .container {
+      width: 90%;
       max-width: 1240px;
       margin: auto;
+      padding: 2%;
       background: #1e1e1e;
-      padding: 30px;
       border-radius: 10px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     }
 
+
     /* Tab styling */
     .tab-bar {
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 20px;
     }
+
+    @media (max-width: 768px) {
+      .tab-bar {
+        flex-direction: column;
+      }
+
+      .container {
+        padding: 10px;
+      }
+
+      #igvContainer {
+        height: calc(100vh - 200px);
+        /* Adjust height based on viewport */
+      }
+
+      #chartCanvas,
+      #pairsChartCanvas {
+        min-height: 200px;
+        /* Adjust as needed */
+      }
+    }
+
 
     .tab-bar button {
       flex: 1;
@@ -97,9 +131,11 @@
     }
 
     /* Viewer Tab styling */
-    canvas {
+    /* Replace canvas with div so ApexCharts can render SVG */
+    #chartCanvas {
       margin-top: 20px;
       background: transparent;
+      min-height: 300px;
     }
 
     #legend {
@@ -220,8 +256,9 @@
 
     /* Genome Viewer Tab styling */
     #igvContainer {
-      max-width: 1240px;
-      height: 860px;
+      width: 100%;
+      height: calc(100vh - 150px);
+      /* leaves room for headers/footers */
       margin: auto;
       background: #ffffff;
       border-radius: 10px;
@@ -229,8 +266,16 @@
       padding: 10px;
     }
 
+
+    #igvContainer svg text,
+    #igvContainer svg tspan {
+      fill: #000 !important;
+      color: #000 !important;
+    }
+
+
     #igvContainer .igv-container {
-      background-color: #585252 !important;
+      background-color: #000000 !important;
     }
 
     #igvContainer .igv-track-label {
@@ -258,7 +303,7 @@
 
     #igvContainer .igv-locus-label,
     #igvContainer .igv-locus-input {
-      background-color: #2e2e2e !important;
+      background-color: #000000 !important;
       color: #000 !important;
     }
 
@@ -279,6 +324,7 @@
     #igvContainer .igv-track-label,
     #igvContainer .igv-track-label * {
       color: #000 !important;
+      fill: #000 !important;
     }
 
     #igvContainer .igv-popover,
@@ -289,11 +335,11 @@
     /* ----------------------- Processing Site Motifs Tab Styles ----------------------- */
     #motifsTab .motifs-container {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
       gap: 20px;
       margin-top: 20px;
     }
+
 
     #motifsTab .section {
       background: #1e1e1e;
@@ -319,7 +365,9 @@
 
     #motifsTab .svg-wrapper {
       background: #ffffff;
-      border: 2px solid #ccc;
+      max-width: 100%;
+      height: auto;
+      border: 4px solid #ccc;
       border-radius: 4px;
       padding: 5px;
       display: inline-block;
@@ -402,6 +450,10 @@
       padding: 10px 20px 20px 20px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    #arcog_barChart {
+      overflow: visible !important;
     }
 
     .arCOG-header-controls {
@@ -499,7 +551,8 @@
       color: #ffb74d;
     }
 
-    #barChartContainer {
+    /* Replace canvas with div for the bubble chart */
+    #arcog_barChart {
       width: 100%;
       height: 40vh;
       margin-top: 20px;
@@ -507,6 +560,34 @@
       border: 2px solid #555;
       border-radius: 4px;
       padding: 10px;
+    }
+
+    #tableControls {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+      /* Provides spacing below the header and above the table */
+      background-color: #1e1e1e;
+      padding: 10px;
+      border: 1px solid #555;
+      border-radius: 4px;
+    }
+
+    #tableList input[type="checkbox"] {
+      transform: scale(1.5);
+      display: block;
+      margin: 0 auto;
+    }
+
+    #plotButton {
+      position: relative;
+      left: 0px;
+      top: 5px;
+    }
+
+    #prevGene,
+    #nextGene {
+      width: 150px;
     }
   </style>
 </head>
@@ -526,15 +607,16 @@
     <div id="viewerTab" class="tab-content active">
       <hr>
       <div class="gene-nav">
-        <button id="prevGene">Previous Gene</button>
+        <button id="prevGene">Previous</button>
         <input type="text" id="geneInput" list="geneList" placeholder="Enter gene name">
-        <button id="nextGene">Next Gene</button>
+        <button id="nextGene">Next</button>
+        <datalist id="geneList"></datalist>
       </div>
-      <datalist id="geneList"></datalist>
-      <button id="plotButton">Plot Gene Expression</button>
-      <button id="saveChartButton" class="save-chart-btn">Save PNG</button>
-      <button id="exportTableButton" class="save-chart-btn">Export as a Table</button>
-      <canvas id="chartCanvas"></canvas>
+      <div style="text-align: center;"><button id="plotButton">Plot Gene Expression</button>
+      </div>
+
+      <!-- Changed from canvas to div for ApexCharts -->
+      <div id="chartCanvas"></div>
       <div id="legend">
         <div>
           <div class="legend-box" style="background-color: #4fc3f7;"></div>
@@ -550,7 +632,16 @@
     <!-- Data Tables Tab -->
     <div id="tablesTab" class="tab-content">
       <h2>Loaded Tables</h2>
+      <div id="tableControls">
+        <button id="selectAllCheckboxes">Select All</button>
+        <button id="clearAllCheckboxes">Clear All</button>
+      </div>
       <div id="tableList">
+      </div>
+      <div id="tableControls">
+        <button id="selectAllCheckboxes">Select All</button>
+        <button id="clearAllCheckboxes">Clear All</button>
+        <button id="toTopButton">Return to Top</button>
       </div>
       <div id="tableDisplay">
       </div>
@@ -566,8 +657,8 @@
         <select id="geneSelectPairs"></select>
         <button id="nextGenePairs">Next Gene</button>
       </div>
-      <!-- Chart for asRNA/mRNA Pairs -->
-      <canvas id="pairsChartCanvas"></canvas>
+      <!-- Chart for asRNA/mRNA Pairs: changed from canvas to div -->
+      <div id="pairsChartCanvas"></div>
       <div id="pairsLegend" style="margin-top: 10px; display: flex; gap: 15px; justify-content: center;">
         <div style="display: flex; align-items: center; gap: 5px;">
           <div style="width: 20px; height: 20px; background-color: #4fc3f7; border: 1px solid #fff;"></div>
@@ -586,9 +677,6 @@
           <span>asRNA (p > 0.05)</span>
         </div>
       </div>
-      <!-- Save and Export buttons for asRNA/mRNA pairs -->
-      <button id="savePairsChartButton" class="save-chart-btn">Save PNG</button>
-      <button id="exportPairsTableButton" class="save-chart-btn">Export as a Table</button>
       <!-- Correlation Summary Table -->
       <div class="pairs-section">
         <h2>Correlation Summary</h2>
@@ -699,7 +787,6 @@
           <div class="arCOG-right" style="display: flex; flex-direction: column; gap: 5px;">
             <button id="arcog_filterBtn">Generate Table</button>
             <button id="arcog_plotBtn">Generate Plot</button>
-            <button id="arcog_exportBtn">Export Plot</button>
             <button id="arcog_exportTableBtn">Export Table</button>
             <button id="arcog_clearBtn">Clear All</button>
           </div>
@@ -715,9 +802,9 @@
             <tbody id="arcog_tableBody"></tbody>
           </table>
         </div>
-        <!-- Bubble chart container -->
+        <!-- Bubble chart container: changed from canvas to div -->
         <div id="barChartContainer">
-          <canvas id="arcog_barChart"></canvas>
+          <div id="arcog_barChart"></div>
         </div>
       </div>
     </div>
@@ -728,7 +815,7 @@
   <script>
     document.addEventListener('DOMContentLoaded', function () {
 
-      /* -------------------- Global Variables for Other Tabs -------------------- */
+      /* -------------------- Global Variables for Tabs -------------------- */
       let gffData = [];
       let arCOGData = [];
       let sulfoCogData = [];
@@ -736,32 +823,15 @@
       let deSeq2Data = [];
       let globalMapping = [];
       let deSeq2Files = [];
-      let chart;
-      let pairsChart = null;
+      let chart; // Expression Profiles chart (ApexCharts instance)
+      let pairsChart = null; // asRNA/mRNA pairs chart
       let dataFiles = [];
       let geneArray = [];
 
       /* -------------------- Global Variables for arCOG Analysis Tab -------------------- */
       let arcog_barChartInstance = null;
 
-      /* -------------------- Helper: Save Canvas as High-Res PNG -------------------- */
-      function saveCanvasAsHighResImage(canvas, filename, scaleFactor = 2) {
-        const originalWidth = canvas.width;
-        const originalHeight = canvas.height;
-        const scaledCanvas = document.createElement('canvas');
-        scaledCanvas.width = originalWidth * scaleFactor;
-        scaledCanvas.height = originalHeight * scaleFactor;
-        const scaledContext = scaledCanvas.getContext('2d');
-        scaledContext.scale(scaleFactor, scaleFactor);
-        scaledContext.drawImage(canvas, 0, 0);
-        const url = scaledCanvas.toDataURL('image/png');
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-      }
-
-      /* -------------------- Data Loading Functions (Shared) -------------------- */
+      /* -------------------- Data Loading Functions -------------------- */
       function loadGFFData() {
         return fetch('arcogs/Sacidocaldarius-2024-curated.txt')
           .then(response => response.text())
@@ -793,16 +863,29 @@
             document.getElementById('arcog_searchMessage').textContent = "Failed to load GFF data.";
           });
       }
+      document.getElementById("geneInput").addEventListener("click", function () {
+        this.select();
+      });
+
+      document.getElementById('selectAllCheckboxes').addEventListener('click', function () {
+        const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
+        checkboxes.forEach(checkbox => checkbox.checked = true);
+      });
+
+      document.getElementById('toTopButton').addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      document.getElementById('clearAllCheckboxes').addEventListener('click', function () {
+        const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
+        checkboxes.forEach(checkbox => checkbox.checked = false);
+      });
 
       function loadArCOGData() {
         return fetch('arcogs/S_acidocaldarius_arCOGs.txt')
           .then(response => response.text())
           .then(text => {
-            const results = Papa.parse(text, {
-              delimiter: " ",
-              header: false,
-              skipEmptyLines: true
-            });
+            const results = Papa.parse(text, { delimiter: " ", header: false, skipEmptyLines: true });
             arCOGData = results.data.map(row => ({
               gene: row[0],
               sulfoCode: row[6]
@@ -818,11 +901,7 @@
         return fetch('arcogs/Sulfo_cog2ar.txt')
           .then(response => response.text())
           .then(text => {
-            const results = Papa.parse(text, {
-              delimiter: " ",
-              header: false,
-              skipEmptyLines: true
-            });
+            const results = Papa.parse(text, { delimiter: " ", header: false, skipEmptyLines: true });
             sulfoCogData = results.data.map(row => ({
               sulfoCode: row[0],
               arCOGCode: row[4]
@@ -838,11 +917,7 @@
         return fetch('arcogs/arCOG_names_220807.txt')
           .then(response => response.text())
           .then(text => {
-            const results = Papa.parse(text, {
-              delimiter: "\t",
-              header: true,
-              skipEmptyLines: true
-            });
+            const results = Papa.parse(text, { delimiter: "\t", header: true, skipEmptyLines: true });
             arCOGNamesData = results.data;
           })
           .catch(error => {
@@ -873,12 +948,10 @@
         });
       }
 
-
       function shortenFilename(filename) {
-        return filename.replace(/deseq-tabs\/DESeq2_/, "").replace(/\.tab$/, "").replace(/deseq-tabs\/DESeq2-/, "");
+        return filename.replace(/deseq-tabs\/DESeq2_/, "").replace(/deseq-tabs\/DESeq2-/, "").replace(/\.tab$/, "");
       }
 
-      /* -------------------- Preload .tab Files from a Folder -------------------- */
       function preloadTabFiles() {
         fetch('data/tabFiles.json')
           .then(response => response.json())
@@ -911,7 +984,6 @@
           });
       }
 
-      /* -------------------- Mapping and Autocomplete Functions for arCOG Tab -------------------- */
       function arcog_populateAutocomplete() {
         const datalist = document.getElementById('arcog_geneList');
         if (datalist) { datalist.innerHTML = ""; }
@@ -953,7 +1025,6 @@
         return mapping ? mapping : null;
       }
 
-      // Build global mapping and now add log2FoldChange and pvalue from the DESeq2 data if available.
       function arcog_buildGlobalMapping() {
         globalMapping = [];
         gffData.forEach(gene => {
@@ -979,7 +1050,7 @@
             "Annotation Code": annotation ? annotation.Code : "N/A",
             "Product": annotation ? annotation.Product : "N/A",
             "Function": annotation ? annotation.Function : "N/A",
-            "log2FoldChange": log2FC,
+            "log2(FoldChange)": log2FC,
             "pvalue": pval
           });
         });
@@ -990,9 +1061,7 @@
       function arcog_populateDropdown() {
         const dropdown = document.getElementById('arcog_annotationDropdown');
         dropdown.innerHTML = '<option value="ALL">All codes</option>';
-        const uniqueCodes = [...new Set(globalMapping
-          .filter(item => item["Annotation Code"] !== "N/A")
-          .map(item => item["Annotation Code"]))];
+        const uniqueCodes = [...new Set(globalMapping.filter(item => item["Annotation Code"] !== "N/A").map(item => item["Annotation Code"]))];
         uniqueCodes.sort();
         uniqueCodes.forEach(code => {
           const option = document.createElement('option');
@@ -1002,7 +1071,6 @@
         });
       }
 
-      // Display results in the arCOG analysis table, including log2FoldChange and pvalue
       function arcog_displayResults(results) {
         const table = document.getElementById('arcog_resultsTable');
         const headerRow = document.getElementById('arcog_tableHeader');
@@ -1049,7 +1117,6 @@
         arcog_displayResults(filtered);
       }
 
-      // New function to export the arCOG results table as a TSV file
       function arcog_exportTable() {
         const table = document.getElementById('arcog_resultsTable');
         if (table.style.display === "none") {
@@ -1087,6 +1154,7 @@
           document.getElementById('arcog_filterMessage').textContent = "No genes found for the selected option.";
           return;
         }
+
         const dataset = deSeq2Files[0];
         const groups = {};
         filteredGenes.forEach(geneObj => {
@@ -1112,137 +1180,83 @@
         const upData = [];
         const neutralData = [];
         const downData = [];
-        const scale = 20;
+        const scale = 10;
         Object.keys(groups).forEach(code => {
           const group = groups[code];
           const total = group.up + group.neutral + group.down;
           upData.push({
             x: code,
             y: 2,
-            r: total ? (group.up / total) * scale : 0,
+            z: total ? (group.up / total) * scale : 0,
             count: group.up,
             total: total
           });
           neutralData.push({
             x: code,
             y: 1,
-            r: total ? (group.neutral / total) * scale : 0,
+            z: total ? (group.neutral / total) * scale : 0,
             count: group.neutral,
             total: total
           });
           downData.push({
             x: code,
             y: 0,
-            r: total ? (group.down / total) * scale : 0,
+            z: total ? (group.down / total) * scale : 0,
             count: group.down,
             total: total
           });
         });
 
-        const ctx = document.getElementById('arcog_barChart').getContext('2d');
+        const ctxContainer = document.getElementById('arcog_barChart');
         if (arcog_barChartInstance) {
           arcog_barChartInstance.destroy();
         }
-        arcog_barChartInstance = new Chart(ctx, {
-          type: 'bubble',
-          data: {
-            datasets: [
-              {
-                label: "Upregulated",
-                data: upData,
-                backgroundColor: "#0072B2",
-                borderColor: "#000",
-                borderWidth: 1
-              },
-              {
-                label: "Not-affected",
-                data: neutralData,
-                backgroundColor: "#999999",
-                borderColor: "#000",
-                borderWidth: 1
-              },
-              {
-                label: "Downregulated",
-                data: downData,
-                backgroundColor: "#D55E00",
-                borderColor: "#000",
-                borderWidth: 1
-              }
-            ]
+
+        arcog_barChartInstance = new ApexCharts(ctxContainer, {
+          chart: {
+            type: 'bubble',
+            background: 'transparent',
+            animations: { easing: 'easeOutQuart', speed: 800 }
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: {
-              padding: {
-                left: 10,
-                right: 10,
-                top: 10,
-                bottom: 10
-              }
-            },
-            scales: {
-              x: {
-                type: 'category',
-                offset: true,
-                title: {
-                  display: true,
-                  text: 'Annotation Code',
-                  color: "#000000"
-                },
-                ticks: {
-                  autoSkip: false,
-                  maxRotation: 90,
-                  minRotation: 45
-                },
-                categoryPercentage: 0.5,
-                barPercentage: 0.5
-              },
-              y: {
-                type: 'linear',
-                min: -0.5,
-                max: 2.5,
-                title: {
-                  display: false,
-                  text: dataset[0]?.fileName || "DESeq2 File",
-                  color: "#000000"
-                },
-                ticks: {
-                  stepSize: 1,
-                  callback: function (value) {
-                    if (value === 2) return "+1";
-                    if (value === 1) return "0";
-                    if (value === 0) return "-1";
-                    return "";
-                  }
-                },
-                color: "#000000"
-              }
-            },
-            plugins: {
-              legend: {
-                display: true,
-                labels: {
-                  font: {
-                    size: 14
-                  },
-                  color: '#000000'
-                }
-              },
-              tooltip: {
-                callbacks: {
-                  label: function (context) {
-                    const count = context.raw.count;
-                    const total = context.raw.total;
-                    const percent = total ? ((count / total) * 100).toFixed(1) : 0;
-                    return "Percentage: " + percent + "%";
-                  }
-                }
-              }
-            },
-            animation: { duration: 800, easing: 'easeOutQuart' }
-          }
+          layout: {
+            padding: { left: 300, right: 300, top: 0, bottom: 0 }
+          },
+          plotOptions: {
+            bubble: { minBubbleRadius: 2, maxBubbleRadius: 20 }
+          },
+          series: [
+            { name: "Upregulated", data: upData },
+            { name: "Unaffected", data: neutralData },
+            { name: "Downregulated", data: downData }
+          ],
+          xaxis: {
+            type: 'category',
+            tickPlacement: 'between',
+            title: { text: 'Annotation Code', style: { fontSize: '16px', color: "#000000" } },
+            labels: { style: { colors: "#000000" } },
+            axisBorder: { color: "#000000" },
+            axisTicks: { color: "#000000" }
+          },
+          yaxis: {
+            min: -0.5,
+            max: 2.5,
+            show: false,
+            axisBorder: { color: "#000000" },
+            axisTicks: { color: "#000000" }
+          },
+          markers: {
+            strokeColors: ['#000', '#000', '#000'],
+            strokeWidth: 2
+          },
+
+          legend: {
+            show: true,
+            labels: { colors: '#000000', fontSize: '14px' }
+          },
+          dataLabels: { enabled: false }
         });
+
+        arcog_barChartInstance.render();
       }
 
       function arcog_clearAll() {
@@ -1261,19 +1275,23 @@
 
       function arcog_exportPlot() {
         if (arcog_barChartInstance) {
-          const canvas = document.getElementById('arcog_barChart');
           const fileName = deSeq2Files[0]?.fileName ? deSeq2Files[0].fileName + "_bubbleplot.png" : "bubbleplot.png";
-          saveCanvasAsHighResImage(canvas, fileName, 3);
+          // Using the PNG export function for arCOG bubble plot remains unchanged.
+          arcog_barChartInstance.dataURI().then(({ imgURI }) => {
+            const a = document.createElement('a');
+            a.href = imgURI;
+            a.download = fileName;
+            a.click();
+          }).catch(() => {
+            alert("Export failed.");
+          });
         } else {
           alert("No chart available to export.");
         }
       }
 
-      // Attach event listeners for the arCOG Analysis tab (using arcog_* IDs)
-      // Note: The gene search input is now removed in this tab.
       document.getElementById('arcog_filterBtn').addEventListener('click', arcog_filterByAnnotationCode);
       document.getElementById('arcog_plotBtn').addEventListener('click', arcog_generateBubblePlot);
-      document.getElementById('arcog_exportBtn').addEventListener('click', arcog_exportPlot);
       document.getElementById('arcog_exportTableBtn').addEventListener('click', arcog_exportTable);
       document.getElementById('arcog_clearBtn').addEventListener('click', arcog_clearAll);
       document.getElementById('arcog_deseq2Input').addEventListener('change', function (e) {
@@ -1281,13 +1299,11 @@
         if (file) {
           loadDESeq2File(file).then(() => {
             document.getElementById('arcog_searchMessage').textContent = "DESeq2 data loaded successfully.";
-            // Rebuild global mapping so that log2FoldChange and pvalue are added
             arcog_buildGlobalMapping();
           });
         }
       });
 
-      /* -------------------- Tab Switching Code -------------------- */
       const viewerTabBtn = document.getElementById('viewerTabBtn');
       const tablesTabBtn = document.getElementById('tablesTabBtn');
       const pairsTabBtn = document.getElementById('pairsTabBtn');
@@ -1337,11 +1353,9 @@
         genomeViewerTab.classList.add('active');
         genomeViewerTabBtn.classList.add('active');
         if (!window.igvBrowser) {
+
           const igvOptions = {
-            genome: {
-              id: "Sacidocaldarius",
-              fastaURL: "sequences/Sacidocaldarius-genome.fa"
-            },
+            genome: { id: "Sacidocaldarius", fastaURL: "sequences/Sacidocaldarius-genome.fa" },
             locus: "NC_007181.1:1-20000",
             showChromosomeWidget: false,
             showCenterGuide: false,
@@ -1354,7 +1368,9 @@
                 color: "#81d4fa",
                 displayMode: "EXPANDED",
                 height: 100,
-                filterTypes: ['CDS']
+                filterTypes: ['CDS'],
+                searchable: true,
+                searchableFields: ['Name', 'locus_tag', 'old_locus_tag']
               },
               {
                 name: "ncRNAs / asRNAs",
@@ -1362,7 +1378,7 @@
                 format: "gff3",
                 color: "#81d4fa",
                 displayMode: "EXPANDED",
-                height: 80,
+                height: 80
               },
               {
                 name: "smAP1 (Interaction)",
@@ -1455,19 +1471,13 @@
           fetch('data/expression.txt').then(response => response.text())
         ]).then(([corrText, exprText]) => {
           Papa.parse(corrText, {
-            header: true,
-            delimiter: "\t",
-            dynamicTyping: true,
-            complete: function (results) {
+            header: true, delimiter: "\t", dynamicTyping: true, complete: function (results) {
               window.correlationDataPairs = results.data.filter(row => row.Gene);
               checkPairsReady();
             }
           });
           Papa.parse(exprText, {
-            header: true,
-            delimiter: "\t",
-            dynamicTyping: true,
-            complete: function (results) {
+            header: true, delimiter: "\t", dynamicTyping: true, complete: function (results) {
               window.expressionDataPairs = results.data.filter(row => row.Gene);
               checkPairsReady();
             }
@@ -1479,7 +1489,6 @@
 
       function checkPairsReady() {
         if (window.correlationDataPairs && window.expressionDataPairs) {
-          document.getElementById('uploadStatusPairs').textContent = "Files successfully loaded!";
           buildGeneListPairs();
           setupGeneNavigationPairs();
           updatePairsDisplayForGene(geneListPairs[0]);
@@ -1562,105 +1571,96 @@
         }
         let experiments = Array.from(new Set(geneRows.map(row => row.Experiment)));
         experiments.sort();
-        const geneDatasetData = experiments.map(exp => {
-          const rows = geneRows.filter(r => r.Experiment === exp && r.Gene_log2FoldChange != null);
-          return rows.length ? rows[0].Gene_log2FoldChange : "";
-        });
-        const geneDatasetPvals = experiments.map(exp => {
-          const rows = geneRows.filter(r => r.Experiment === exp && r.Gene_pvalue != null);
-          return rows.length ? rows[0].Gene_pvalue : "";
-        });
-        const asRNAIds = Array.from(new Set(geneRows.map(row => row.asRNA_ids)));
-        const asRNADatasets = asRNAIds.map(id => {
-          const data = experiments.map(exp => {
-            const rows = geneRows.filter(r => r.Experiment === exp && r.asRNA_ids === id);
-            return rows.length ? rows[0].asRNA_log2FoldChange : "";
-          });
-          const pvals = experiments.map(exp => {
-            const rows = geneRows.filter(r => r.Experiment === exp && r.asRNA_ids === id);
-            return rows.length ? rows[0].asRNA_pvalue : "";
-          });
-          return { id, data, pvals };
-        });
-        const geneColors = geneDatasetPvals.map(pval => (pval !== null && pval <= 0.05) ? "#4fc3f7" : lightenColor("#4fc3f7", 40));
-        const asRNABaseColors = ["#ffb74d", "#f57c00", "#ffa726", "#ffcc80", "#ffe0b2"];
-        const asRNADatasetsConfig = asRNADatasets.map((ds, idx) => {
-          const baseColor = asRNABaseColors[idx % asRNABaseColors.length];
-          const colors = ds.pvals.map(pval => (pval !== null && pval <= 0.05) ? baseColor : lightenColor(baseColor, 40));
+
+        // Build the gene series data with embedded pvalue and fillColor
+        const geneSeriesData = experiments.map(exp => {
+          const row = geneRows.find(r => r.Experiment === exp);
+          if (!row) return null;
           return {
-            label: `asRNA ${ds.id}`,
-            data: ds.data,
-            backgroundColor: colors,
-            borderColor: colors.map(c => darkenColor(c, 20)),
-            borderWidth: 1
+            x: exp,
+            y: row.Gene_log2FoldChange,
+            pvalue: row.Gene_pvalue,
+            fillColor: (row.Gene_pvalue !== null && row.Gene_pvalue <= 0.05) ? "#4fc3f7" : "#a9e3f7",
+            label: row.Gene  // Embed gene name
           };
+        }).filter(Boolean);
+
+        // Build asRNA series by parsing the comma-separated fields:
+        let asRNADataMap = {}; // key: asRNA id, value: array of data points
+        experiments.forEach(exp => {
+          const row = geneRows.find(r => r.Experiment === exp);
+          if (!row) return;
+          // Convert to string before splitting
+          const ids = String(row.asRNA_ids).split(",").map(s => s.trim());
+          const foldChanges = String(row.asRNA_log2FoldChange).split(",").map(s => parseFloat(s.trim()));
+          const pvalues = String(row.asRNA_pvalue).split(",").map(s => parseFloat(s.trim()));
+          ids.forEach((id, idx) => {
+            const dataPoint = {
+              x: exp,
+              y: foldChanges[idx],
+              pvalue: pvalues[idx],
+              fillColor: (pvalues[idx] !== null && pvalues[idx] <= 0.05) ? "#ffb74d" : "#ffd8a5",
+              label: id  // Embed asRNA id
+            };
+            if (!asRNADataMap[id]) {
+              asRNADataMap[id] = [];
+            }
+            asRNADataMap[id].push(dataPoint);
+          });
         });
-        const geneDatasetConfig = {
-          label: 'Gene log2FoldChange',
-          data: geneDatasetData,
-          backgroundColor: geneColors,
-          borderColor: geneColors.map(c => darkenColor(c, 20)),
-          borderWidth: 1
-        };
+        const asRNA_series = Object.keys(asRNADataMap).map(id => ({
+          name: id, // This is the asRNA id
+          data: asRNADataMap[id]
+        }));
+
+        const series = [{
+          name: 'Gene log2(FoldChange)',
+          data: geneSeriesData
+        }].concat(asRNA_series);
+
         if (pairsChart) { pairsChart.destroy(); }
-        const ctx = document.getElementById('pairsChartCanvas').getContext('2d');
-        pairsChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: experiments,
-            datasets: [
-              geneDatasetConfig,
-              ...asRNADatasetsConfig
-            ]
+
+        pairsChart = new ApexCharts(document.querySelector("#pairsChartCanvas"), {
+          chart: { type: 'bar', animations: { easing: 'easeOutQuart', speed: 800 } },
+          series: series,
+          xaxis: {
+            categories: experiments,
+            title: { text: 'Condition', style: { fontSize: '16px', color: '#e0e0e0' } },
+            labels: { style: { colors: '#e0e0e0' } },
+            axisBorder: { color: '#555' },
+            axisTicks: { color: '#555' }
           },
-          options: {
-            responsive: true,
-            scales: {
-              y: {
-                beginAtZero: true,
-                title: {
-                  display: true,
-                  text: 'log2FoldChange',
-                  font: { size: 16 },
-                  color: '#e0e0e0'
-                },
-                ticks: { color: '#e0e0e0' },
-                grid: { color: '#555' }
-              },
-              x: {
-                ticks: { color: '#e0e0e0' },
-                grid: { color: '#555' },
-                title: {
-                  display: true,
-                  text: 'Experiment',
-                  font: { size: 16 },
-                  color: '#e0e0e0'
-                }
-              }
-            },
-            plugins: {
-              tooltip: {
-                callbacks: {
-                  label: function (context) {
-                    const idx = context.dataIndex;
-                    let pval;
-                    if (context.dataset.label === 'Gene log2FoldChange') {
-                      pval = geneDatasetPvals[idx];
-                    } else {
-                      const dsIndex = asRNADatasetsConfig.findIndex(ds => ds.label === context.dataset.label);
-                      pval = asRNADatasets[dsIndex].pvals[idx];
-                    }
-                    const sigText = (pval !== null && pval <= 0.05) ? ' (significant)' : '';
-                    return context.dataset.label + ': ' + context.parsed.y + sigText;
-                  }
-                }
-              },
-              legend: { display: false, labels: { color: '#e0e0e0' } }
-            },
-            animation: { duration: 800, easing: 'easeOutQuart' }
-          }
+          yaxis: {
+            title: { text: 'log2(FoldChange)', style: { fontSize: '16px', color: '#e0e0e0' } },
+            labels: { style: { colors: '#e0e0e0' } },
+            axisBorder: { color: '#555' },
+            axisTicks: { color: '#555' }
+          },
+          tooltip: {
+            custom: function ({ series, seriesIndex, dataPointIndex, w }) {
+              const currentData = w.config.series[seriesIndex].data[dataPointIndex];
+              const pvalueFormatted = (currentData.pvalue !== "" && !isNaN(currentData.pvalue))
+                ? Number(currentData.pvalue).toExponential(2)
+                : currentData.pvalue;
+              // For gene series, use the embedded gene name; for asRNA series, use the series name
+              const labelText = (seriesIndex === 0) ? currentData.label : w.config.series[seriesIndex].name;
+              const typeLabel = (seriesIndex === 0) ? "Gene" : "asRNA";
+              return `<div style="padding: 10px; background: white; color: black; border: 1px solid #ccc; border-radius: 4px; font-family: Arial, sans-serif;">
+              <b>${typeLabel}:</b> ${labelText}<br>
+              <b>log2(FoldChange):</b> ${currentData.y}<br>
+              <b>p-value:</b> ${pvalueFormatted}
+            </div>`;
+            }
+          },
+          title: { text: gene, style: { fontSize: '20px', color: '#e0e0e0' } },
+          plotOptions: { bar: { borderRadius: 4, horizontal: false } },
+          dataLabels: { enabled: false },
+          legend: { show: false }
         });
+        pairsChart.render();
       }
+
+
 
       function lightenColor(color, percent) {
         let num = parseInt(color.slice(1), 16),
@@ -1668,16 +1668,15 @@
           R = (num >> 16) + amt,
           G = (num >> 8 & 0x00FF) + amt,
           B = (num & 0x0000FF) + amt;
-        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 + (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 + (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+          (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+          (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
       }
 
       function darkenColor(color, percent) {
         return lightenColor(color, -percent);
       }
 
-      /* -------------------- End of arCOG Analysis Code -------------------- */
-
-      /* -------------------- Viewer, Data Tables, and asRNA/mRNA Pairs Code (shared across tabs) -------------------- */
       function updateGeneList() {
         const geneSet = new Set();
         dataFiles.forEach(fileObj => {
@@ -1699,64 +1698,50 @@
       }
 
       function updateTableList() {
-  const tableListDiv = document.getElementById('tableList');
-  tableListDiv.innerHTML = "";
-  if (dataFiles.length === 0) {
-    tableListDiv.innerHTML = "<p>No files loaded.</p>";
-    return;
-  }
-  const tbl = document.createElement('table');
-  const headerRow = document.createElement('tr');
-  // Add three columns: Select, Filename, and Actions.
-  ['Select', 'Filename', 'Actions'].forEach(text => {
-    const th = document.createElement('th');
-    th.textContent = text;
-    headerRow.appendChild(th);
-  });
-  tbl.appendChild(headerRow);
-  dataFiles.forEach(fileObj => {
-    const row = document.createElement('tr');
-    
-    // Checkbox cell for selection.
-    const selectCell = document.createElement('td');
-    const checkbox = document.createElement('input');
-    checkbox.type = "checkbox";
-    checkbox.classList.add("file-select-checkbox");
-    checkbox.dataset.filename = fileObj.filename;
-    // Optionally, set it checked by default.
-    checkbox.checked = true;
-    selectCell.appendChild(checkbox);
-    row.appendChild(selectCell);
-    
-    // Filename cell.
-    const nameCell = document.createElement('td');
-    nameCell.textContent = fileObj.filename;
-    row.appendChild(nameCell);
-    
-    // Actions cell (View/Remove).
-    const actionsCell = document.createElement('td');
-    const viewBtn = document.createElement('button');
-    viewBtn.textContent = "View";
-    viewBtn.style.width = "80px";
-    viewBtn.addEventListener('click', function() {
-      viewTable(fileObj.filename);
-    });
-    const removeBtn = document.createElement('button');
-    removeBtn.textContent = "Remove";
-    removeBtn.style.width = "80px";
-    removeBtn.addEventListener('click', function() {
-      removeFile(fileObj.filename);
-    });
-    actionsCell.appendChild(viewBtn);
-    actionsCell.appendChild(document.createTextNode(" "));
-    actionsCell.appendChild(removeBtn);
-    row.appendChild(actionsCell);
-    
-    tbl.appendChild(row);
-  });
-  tableListDiv.appendChild(tbl);
-}
-
+        const tableListDiv = document.getElementById('tableList');
+        tableListDiv.innerHTML = "";
+        if (dataFiles.length === 0) {
+          tableListDiv.innerHTML = "<p>No files loaded.</p>";
+          return;
+        }
+        const tbl = document.createElement('table');
+        const headerRow = document.createElement('tr');
+        ['Select', 'Filename', 'Actions'].forEach(text => {
+          const th = document.createElement('th');
+          th.textContent = text;
+          headerRow.appendChild(th);
+        });
+        tbl.appendChild(headerRow);
+        dataFiles.forEach(fileObj => {
+          const row = document.createElement('tr');
+          const selectCell = document.createElement('td');
+          const checkbox = document.createElement('input');
+          checkbox.type = "checkbox";
+          checkbox.classList.add("file-select-checkbox");
+          checkbox.dataset.filename = fileObj.filename;
+          checkbox.checked = true;
+          selectCell.appendChild(checkbox);
+          row.appendChild(selectCell);
+          const nameCell = document.createElement('td');
+          nameCell.textContent = fileObj.filename;
+          row.appendChild(nameCell);
+          const actionsCell = document.createElement('td');
+          const viewBtn = document.createElement('button');
+          viewBtn.textContent = "View";
+          viewBtn.style.width = "80px";
+          viewBtn.addEventListener('click', function () { viewTable(fileObj.filename); });
+          const removeBtn = document.createElement('button');
+          removeBtn.textContent = "Remove";
+          removeBtn.style.width = "80px";
+          removeBtn.addEventListener('click', function () { removeFile(fileObj.filename); });
+          actionsCell.appendChild(viewBtn);
+          actionsCell.appendChild(document.createTextNode(" "));
+          actionsCell.appendChild(removeBtn);
+          row.appendChild(actionsCell);
+          tbl.appendChild(row);
+        });
+        tableListDiv.appendChild(tbl);
+      }
 
       function removeFile(filename) {
         const tableDisplayDiv = document.getElementById('tableDisplay');
@@ -1807,124 +1792,6 @@
         tableDisplayDiv.appendChild(tbl);
       }
 
-      function shadeColor(color, percent) {
-        let f = parseInt(color.slice(1), 16),
-          t = percent < 0 ? 0 : 255,
-          p = Math.abs(percent),
-          R = f >> 16,
-          G = f >> 8 & 0x00FF,
-          B = f & 0x0000FF;
-        return "#" + (0x1000000 + (Math.round((t - R) * p / 100) + R) * 0x10000 +
-          (Math.round((t - G) * p / 100) + G) * 0x100 +
-          (Math.round((t - B) * p / 100) + B)).toString(16).slice(1);
-      }
-
-      function shortenFilename(filename) {
-        return filename
-          .replace(/deseq-tabs\/DESeq2_/, "")
-          .replace(/deseq-tabs\/DESeq2-/, "")
-          .replace(/\.tab$/, "");
-      }
-
-      function plotGene(geneName) {
-  const savedScrollPos = window.pageYOffset;
-  
-  // Filter dataFiles using the checkboxes in the table list.
-  const selectedFiles = dataFiles.filter(fileObj => {
-    const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
-    return checkbox && checkbox.checked;
-  });
-  
-  // Create a new array with the modified file names from selected files.
-  const modifiedLabels = selectedFiles.map(fileObj => shortenFilename(fileObj.filename));
-  
-  const values = [];
-  const colors = [];
-  
-  // Populate values and colors based on the gene's data in each selected file.
-  selectedFiles.forEach((fileObj, idx) => {
-    const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
-    if (record) {
-      values.push(record.log2FoldChange);
-      colors.push(record.pvalue !== undefined && record.pvalue <= 0.05 ? "#4fc3f7" : "#ffb74d");
-    }
-  });
-  
-  if (modifiedLabels.length === 0 || values.length === 0) {
-    alert("Gene not found in the selected files.");
-    return;
-  }
-  
-  const ctx = document.getElementById('chartCanvas').getContext('2d');
-  if (chart) { chart.destroy(); }
-  
-  chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: modifiedLabels,
-      datasets: [{
-        label: "log2FoldChange",
-        data: values,
-        backgroundColor: colors,
-        borderColor: '#e0e0e0',
-        borderWidth: 1,
-        borderRadius: 4,
-        hoverBackgroundColor: colors.map(c => shadeColor(c, -10))
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        title: {
-          display: true,
-          text: 'Differential Expression for ' + geneName,
-          font: { size: 20 },
-          color: '#e0e0e0'
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              const index = context.dataIndex;
-              const fileObj = selectedFiles.find(f => shortenFilename(f.filename) === modifiedLabels[index]);
-              const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
-              return "log2FoldChange: " + record.log2FoldChange + ", p-value: " + record.pvalue;
-            }
-          }
-        },
-        legend: { display: false }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: { color: '#e0e0e0' },
-          grid: { color: '#555' },
-          title: {
-            display: true,
-            text: "log2FoldChange",
-            font: { size: 16 },
-            color: '#e0e0e0'
-          }
-        },
-        x: {
-          ticks: { color: '#e0e0e0' },
-          grid: { color: '#555' },
-          title: {
-            display: true,
-            text: "File/Contrast",
-            font: { size: 16 },
-            color: '#e0e0e0'
-          }
-        }
-      },
-      animation: { duration: 800, easing: 'easeOutQuart' }
-    }
-  });
-  
-  window.scrollTo(0, savedScrollPos);
-}
-
-
-
       document.getElementById('plotButton').addEventListener('click', function () {
         const geneName = document.getElementById('geneInput').value.trim();
         if (!geneName) {
@@ -1933,6 +1800,84 @@
         }
         plotGene(geneName);
       });
+
+      function plotGene(geneName) {
+        const savedScrollPos = window.pageYOffset;
+        const selectedFiles = dataFiles.filter(fileObj => {
+          const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
+          return checkbox && checkbox.checked;
+        });
+
+        // Build series data with embedded gene name and p-value
+        const seriesData = [];
+        selectedFiles.forEach(fileObj => {
+          const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
+          if (record) {
+            seriesData.push({
+              x: shortenFilename(fileObj.filename),
+              y: record.log2FoldChange,
+              pvalue: record.pvalue,
+              label: geneName  // Embed gene name for tooltip
+            });
+          }
+        });
+
+        if (seriesData.length === 0) {
+          alert("Gene not found in the selected files.");
+          return;
+        }
+
+        if (chart) { chart.destroy(); }
+        chart = new ApexCharts(document.querySelector("#chartCanvas"), {
+          chart: {
+            type: 'bar',
+            animations: { easing: 'easeOutQuart', speed: 800 },
+            background: 'transparent'
+          },
+          series: [{
+            name: 'Gene log2(FoldChange)',
+            data: seriesData
+          }],
+          xaxis: {
+            type: 'category',
+            title: { text: "Condition", style: { fontSize: '16px', color: '#e0e0e0' } },
+            labels: { style: { colors: '#e0e0e0' } },
+            axisBorder: { color: '#555' },
+            axisTicks: { color: '#555' }
+          },
+          yaxis: {
+            title: { text: "log2(FoldChange)", style: { fontSize: '16px', color: '#e0e0e0' } },
+            labels: { style: { colors: '#e0e0e0' } },
+            axisBorder: { color: '#555' },
+            axisTicks: { color: '#555' }
+          },
+          title: {
+            text: 'Differential Expression for ' + geneName,
+            style: { fontSize: '20px', color: '#e0e0e0' }
+          },
+          plotOptions: { bar: { borderRadius: 4, distributed: true } },
+          // Use the p-value to choose the color: significant gets "#4fc3f7", otherwise "#ffb74d"
+          colors: seriesData.map(dp => (dp.pvalue !== undefined && dp.pvalue <= 0.05) ? "#4fc3f7" : "#ffb74d"),
+          tooltip: {
+            custom: function ({ series, seriesIndex, dataPointIndex, w }) {
+              const currentData = w.config.series[seriesIndex].data[dataPointIndex];
+              const pvalueFormatted = (currentData.pvalue !== "" && !isNaN(currentData.pvalue))
+                ? Number(currentData.pvalue).toExponential(2)
+                : currentData.pvalue;
+              return `<div style="padding: 10px; background: white; color: black; border: 1px solid #ccc; border-radius: 4px; font-family: Arial, sans-serif;">
+                  <b>Gene:</b> ${currentData.label}<br>
+                  <b>log2(FoldChange):</b> ${currentData.y}<br>
+                  <b>p-value:</b> ${pvalueFormatted}
+                </div>`;
+            }
+          },
+          dataLabels: { enabled: false },
+          legend: { show: false }
+        });
+        chart.render();
+        window.scrollTo(0, savedScrollPos);
+      }
+
 
       document.getElementById('nextGene').addEventListener('click', function () {
         let currentGene = document.getElementById('geneInput').value.trim();
@@ -1958,59 +1903,16 @@
         plotGene(geneArray[currentIndex]);
       });
 
-      // Export Plot for Viewer Tab
-      document.getElementById('exportTableButton').addEventListener('click', function () {
-        const geneName = document.getElementById('geneInput').value.trim();
-        if (!geneName) {
-          alert("No gene selected.");
-          return;
-        }
-        let tableData = "Filename\tlog2FoldChange\tpvalue\n";
-        dataFiles.forEach(fileObj => {
-          const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
-          if (record) {
-            tableData += `${fileObj.filename}\t${record.log2FoldChange}\t${record.pvalue}\n`;
-          }
-        });
-        const blob = new Blob([tableData], { type: 'text/tab-separated-values;charset=utf-8;' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = geneName + ".tab";
-        a.click();
-      });
-
-      // Save Chart (Export PNG) for Viewer Tab
-      document.getElementById('saveChartButton').addEventListener('click', function () {
-        if (chart) {
-          let geneName = document.getElementById('geneInput').value.trim() || "expression_profile_chart";
-          const filename = geneName + ".png";
-          saveCanvasAsHighResImage(document.getElementById('chartCanvas'), filename, 2);
-        } else {
-          alert("No chart available to save.");
-        }
-      });
-
       /* -------------------- End of Viewer and Pairs Code -------------------- */
 
-      Promise.all([
-        loadGFFData(),
-        loadArCOGData(),
-        loadSulfoCogData(),
-        loadArCOGNamesData()
-      ]).then(() => {
+      Promise.all([loadGFFData(), loadArCOGData(), loadSulfoCogData(), loadArCOGNamesData()]).then(() => {
         arcog_buildGlobalMapping();
       });
 
       preloadTabFiles();
-
-      function loadPairsFiles() {
-        loadPairsData();
-      }
       loadPairsFiles();
-
     });
 
-    /* -------------------- Processing Site Motifs (FASTA/SVG Viewer) Code -------------------- */
     async function loadFasta(file, selectId, displayId) {
       try {
         const response = await fetch(file);
