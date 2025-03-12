@@ -633,14 +633,14 @@
     <div id="tablesTab" class="tab-content">
       <h2>Loaded Tables</h2>
       <div id="tableControls">
-        <button id="selectAllCheckboxes">Select All</button>
-        <button id="clearAllCheckboxes">Clear All</button>
+        <button class="select-all-checkboxes">Select All</button>
+        <button class="clear-all-checkboxes">Clear All</button>
       </div>
       <div id="tableList">
       </div>
       <div id="tableControls">
-        <button id="selectAllCheckboxes">Select All</button>
-        <button id="clearAllCheckboxes">Clear All</button>
+        <button class="select-all-checkboxes">Select All</button>
+        <button class="clear-all-checkboxes">Clear All</button>
         <button id="toTopButton">Return to Top</button>
       </div>
       <div id="tableDisplay">
@@ -867,18 +867,23 @@
         this.select();
       });
 
-      document.getElementById('selectAllCheckboxes').addEventListener('click', function () {
-        const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
-        checkboxes.forEach(checkbox => checkbox.checked = true);
+      document.querySelectorAll('.select-all-checkboxes').forEach(button => {
+        button.addEventListener('click', function () {
+          const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
+          checkboxes.forEach(checkbox => checkbox.checked = true);
+        });
       });
+
+      document.querySelectorAll('.clear-all-checkboxes').forEach(button => {
+        button.addEventListener('click', function () {
+          const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
+          checkboxes.forEach(checkbox => checkbox.checked = false);
+        });
+      });
+
 
       document.getElementById('toTopButton').addEventListener('click', function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-
-      document.getElementById('clearAllCheckboxes').addEventListener('click', function () {
-        const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
-        checkboxes.forEach(checkbox => checkbox.checked = false);
       });
 
       function loadArCOGData() {
@@ -1728,11 +1733,11 @@
           const actionsCell = document.createElement('td');
           const viewBtn = document.createElement('button');
           viewBtn.textContent = "View";
-          viewBtn.style.width = "80px";
+          viewBtn.style.width = "90px";
           viewBtn.addEventListener('click', function () { viewTable(fileObj.filename); });
           const removeBtn = document.createElement('button');
           removeBtn.textContent = "Remove";
-          removeBtn.style.width = "80px";
+          removeBtn.style.width = "90px";
           removeBtn.addEventListener('click', function () { removeFile(fileObj.filename); });
           actionsCell.appendChild(viewBtn);
           actionsCell.appendChild(document.createTextNode(" "));
