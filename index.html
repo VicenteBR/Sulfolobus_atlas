@@ -1504,9 +1504,11 @@
         arCOGAnalysisBtn.classList.add('active');
       });
       /* -------------------- asRNA/mRNA Pairs Tab: load pairs data -------------------- */
+      /* -------------------- asRNA/mRNA Pairs Tab: load pairs data -------------------- */
       function loadPairsFiles() {
         loadPairsData();
       }
+
       function loadPairsData() {
         const uploadStatusPairs = document.getElementById('uploadStatusPairs');
         Promise.all([
@@ -1529,6 +1531,7 @@
           uploadStatusPairs.textContent = "Error loading data: " + error;
         });
       }
+
       function checkPairsReady() {
         if (window.correlationDataPairs && window.expressionDataPairs) {
           buildGeneListPairs();
@@ -1536,6 +1539,7 @@
           updatePairsDisplayForGene(geneListPairs[0]);
         }
       }
+
       let geneListPairs = [];
       let currentGeneIndexPairs = 0;
       function buildGeneListPairs() {
@@ -1556,6 +1560,7 @@
           updatePairsDisplayForGene(this.value);
         });
       }
+
       function setupGeneNavigationPairs() {
         const prevGenePairs = document.getElementById('prevGenePairs');
         const nextGenePairs = document.getElementById('nextGenePairs');
@@ -1575,10 +1580,12 @@
           }
         });
       }
+
       function updatePairsDisplayForGene(gene) {
         updatePairsCorrelationTable(gene);
         updatePairsExpressionChart(gene);
       }
+
       function updatePairsCorrelationTable(gene) {
         const correlationTableBodyPairs = document.getElementById('correlationTableBodyPairs');
         correlationTableBodyPairs.innerHTML = "";
@@ -1600,6 +1607,7 @@
           correlationTableBodyPairs.appendChild(row);
         });
       }
+
       function updatePairsExpressionChart(gene) {
         const geneRows = window.expressionDataPairs.filter(row => row.Gene === gene);
         if (geneRows.length === 0) {
@@ -1608,6 +1616,8 @@
         }
         let experiments = Array.from(new Set(geneRows.map(row => row.Experiment)));
         experiments.sort();
+
+        // Build the gene series data with embedded pvalue and fillColor
         const geneSeriesData = experiments.map(exp => {
           const row = geneRows.find(r => r.Experiment === exp);
           if (!row) return null;
@@ -1616,13 +1626,16 @@
             y: row.Gene_log2FoldChange,
             pvalue: row.Gene_pvalue,
             fillColor: (row.Gene_pvalue !== null && row.Gene_pvalue <= 0.05) ? "#4fc3f7" : "#a9e3f7",
-            label: row.Gene
+            label: row.Gene  // Embed gene name
           };
         }).filter(Boolean);
-        let asRNADataMap = {};
+
+        // Build asRNA series by parsing the comma-separated fields:
+        let asRNADataMap = {}; // key: asRNA id, value: array of data points
         experiments.forEach(exp => {
           const row = geneRows.find(r => r.Experiment === exp);
           if (!row) return;
+          // Convert to string before splitting
           const ids = String(row.asRNA_ids).split(",").map(s => s.trim());
           const foldChanges = String(row.asRNA_log2FoldChange).split(",").map(s => parseFloat(s.trim()));
           const pvalues = String(row.asRNA_pvalue).split(",").map(s => parseFloat(s.trim()));
@@ -1632,7 +1645,7 @@
               y: foldChanges[idx],
               pvalue: pvalues[idx],
               fillColor: (pvalues[idx] !== null && pvalues[idx] <= 0.05) ? "#ffb74d" : "#ffd8a5",
-              label: id
+              label: id  // Embed asRNA id
             };
             if (!asRNADataMap[id]) {
               asRNADataMap[id] = [];
@@ -1641,14 +1654,17 @@
           });
         });
         const asRNA_series = Object.keys(asRNADataMap).map(id => ({
-          name: id,
+          name: id, // This is the asRNA id
           data: asRNADataMap[id]
         }));
+
         const series = [{
           name: 'Gene log2(FoldChange)',
           data: geneSeriesData
         }].concat(asRNA_series);
+
         if (pairsChart) { pairsChart.destroy(); }
+
         pairsChart = new ApexCharts(document.querySelector("#pairsChartCanvas"), {
           chart: { type: 'bar', animations: { easing: 'easeOutQuart', speed: 800 } },
           series: series,
@@ -1671,17 +1687,18 @@
               const pvalueFormatted = (currentData.pvalue !== "" && !isNaN(currentData.pvalue))
                 ? Number(currentData.pvalue).toExponential(2)
                 : currentData.pvalue;
+              // For gene series, use the embedded gene name; for asRNA series, use the series name
               const labelText = (seriesIndex === 0) ? currentData.label : w.config.series[seriesIndex].name;
               const typeLabel = (seriesIndex === 0) ? "Gene" : "asRNA";
               return `<div style="padding: 10px; background: white; color: black; border: 1px solid #ccc; border-radius: 4px; font-family: Arial, sans-serif;">
-                  <b>${typeLabel}:</b> ${labelText}<br>
-                  <b>log2(FoldChange):</b> ${currentData.y}<br>
-                  <b>p-value:</b> ${pvalueFormatted}
-                </div>`;
+              <b>${typeLabel}:</b> ${labelText}<br>
+              <b>log2(FoldChange):</b> ${currentData.y}<br>
+              <b>p-value:</b> ${pvalueFormatted}
+            </div>`;
             }
           },
-          title: { text: 'Differential Expression for ' + gene, style: { fontSize: '20px', color: '#e0e0e0' } },
-          plotOptions: { bar: { borderRadius: 4, distributed: true } },
+          title: { text: gene, style: { fontSize: '20px', color: '#e0e0e0' } },
+          plotOptions: { bar: { borderRadius: 4, horizontal: false } },
           dataLabels: { enabled: false },
           legend: { show: false }
         });
