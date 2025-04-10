@@ -1100,7 +1100,7 @@ NC_007181.1	in_house	gene	755553	755597	.	-	.	ID=ncRNA_47;Name=ncRNA_47;locus_ta
 NC_007181.1	in_house	gene	793963	794012	.	+	.	ID=ncRNA_48;Name=ncRNA_48;locus_tag=ncRNA_48
 NC_007181.1	in_house	gene	799717	799828	.	+	.	ID=ncRNA_49;Name=ncRNA_49;locus_tag=ncRNA_49
 NC_007181.1	in_house	gene	799785	799830	.	-	.	ID=ncRNA_50;Name=ncRNA_50;locus_tag=ncRNA_50
-NC_007181.1	in_house	gene	805734	805858	.	+	.	ID=ncRNA_51;Name=ncRNA_51;locus_tag=ncRNA_51
+NC_007181.1	in_house	gene	805682	805798	.	-	.	ID=ncRNA_51;Name=RrrR;locus_tag=ncRNA_51
 NC_007181.1	in_house	gene	830976	831003	.	+	.	ID=ncRNA_52;Name=ncRNA_52;locus_tag=ncRNA_52
 NC_007181.1	in_house	gene	847076	847171	.	+	.	ID=ncRNA_53;Name=ncRNA_53;locus_tag=ncRNA_53
 NC_007181.1	in_house	gene	854227	854297	.	-	.	ID=ncRNA_54;Name=ncRNA_54;locus_tag=ncRNA_54
