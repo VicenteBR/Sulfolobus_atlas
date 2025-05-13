@@ -512,6 +512,7 @@
       max-height: 60vh;
       overflow-y: auto;
       margin-bottom: 20px;
+      border: 1px solid #444;
     }
 
     .arCOG-results-table {
@@ -542,7 +543,10 @@
     }
 
     .arCOG-results-table th {
-      position: relative;
+        position: sticky;   /* Make the header cells sticky */
+  top: 0;             /* Stick to the top of the scrollable container */
+  background-color: #2e2e2e; /* Ensure background covers scrolled content */
+  z-index: 10;    
       cursor: pointer;
       padding-right: 25px;
       padding: 8px
