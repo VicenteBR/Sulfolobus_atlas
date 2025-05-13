@@ -442,10 +442,6 @@
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     }
 
-    #arcog_barChart {
-      overflow: visible !important;
-    }
-
     .arCOG-header-controls {
       display: flex;
       flex-wrap: wrap;
@@ -513,7 +509,7 @@
 
     .arCOG-table-container {
       width: 100%;
-      max-height: 30vh;
+      max-height: 60vh;
       overflow-y: auto;
       margin-bottom: 20px;
     }
@@ -528,11 +524,32 @@
     .arCOG-results-table td {
       border: 1px solid #555;
       padding: 8px;
-      text-align: left;
+      text-align: center;
+      font-size: 8;
+    }
+
+    .arCOG-results-table th .header-text {
+      display: block;
+      padding: 8px;
+      padding-right: 25px;
+      white-space: nowrap;
+      overflow: auto;
+      text-align: inherit;
     }
 
     .arCOG-results-table th {
       background-color: #2e2e2e;
+    }
+
+    .arCOG-results-table th {
+      position: relative;
+      cursor: pointer;
+      padding-right: 25px;
+      padding: 8px
+    }
+
+   .arCOG-results-table td {
+      text-align: center;
     }
 
     .arCOG-message {
@@ -846,7 +863,6 @@
           </div>
           <div class="arCOG-right" style="display: flex; flex-direction: column; gap: 5px;">
             <button id="arcog_filterBtn">Generate Table</button>
-            <button id="arcog_plotBtn">Generate Plot</button>
             <button id="arcog_exportTableBtn">Export Table</button>
             <button id="arcog_clearBtn">Clear All</button>
           </div>
@@ -860,9 +876,6 @@
             </thead>
             <tbody id="arcog_tableBody"></tbody>
           </table>
-        </div>
-        <div id="barChartContainer">
-          <div id="arcog_barChart"></div>
         </div>
       </div>
     </div>
@@ -896,8 +909,9 @@
       let pairsChart = null; // asRNA/mRNA pairs chart
       let dataFiles = [];
       let geneArray = [];
-      /* -------------------- Global Variables for arCOG Analysis Tab -------------------- */
-      let arcog_barChartInstance = null;
+      let arcog_currentSortColumn = null;
+      let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
+      let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
 
       /* -------------------- Data Loading Functions -------------------- */
       function loadGFFData() {
@@ -1138,19 +1152,31 @@
         const table = document.getElementById('arcog_resultsTable');
         const headerRow = document.getElementById('arcog_tableHeader');
         const tableBody = document.getElementById('arcog_tableBody');
-        headerRow.innerHTML = "";
+        headerRow.innerHTML = ""; // Clear existing headers
         tableBody.innerHTML = "";
+
         if (results.length === 0) {
           document.getElementById('arcog_searchMessage').textContent = "No mapping results found.";
           table.style.display = "none";
           return;
         }
+
         const columns = Object.keys(results[0]);
-        columns.forEach(col => {
+        columns.forEach((col, colIndex) => { // Get column index
           const th = document.createElement('th');
           th.textContent = col;
+          th.dataset.columnIndex = colIndex; // Store column index
+          th.dataset.columnKey = col;      // Store column key (original key from data)
+
+          const arrowSpan = document.createElement('span');
+          arrowSpan.classList.add('sort-arrow');
+          th.appendChild(arrowSpan);
+
+          th.addEventListener('click', () => arcog_sortTableByColumn(th, results)); // Pass results to sort
           headerRow.appendChild(th);
         });
+
+        // Populate table body (existing code)
         results.forEach(row => {
           const tr = document.createElement('tr');
           columns.forEach(col => {
@@ -1160,6 +1186,7 @@
           });
           tableBody.appendChild(tr);
         });
+
         table.style.display = "table";
       }
       function arcog_filterByAnnotationCode() {
@@ -1198,150 +1225,89 @@
         a.download = "arcog_analysis_table.tsv";
         a.click();
       }
-      function arcog_generateBubblePlot() {
-        if (deSeq2Files.length === 0) {
-          document.getElementById('arcog_searchMessage').textContent = "Please load a DESeq2 table first.";
-          return;
-        }
-        const selectedOptions = Array.from(document.getElementById('arcog_annotationDropdown').selectedOptions).map(opt => opt.value);
-        let filteredGenes = [];
-        if (selectedOptions.includes("ALL")) {
-          filteredGenes = globalMapping.filter(item => item["Annotation Code"] !== "N/A");
+
+      function arcog_sortTableByColumn(headerCell, currentData) {
+        const table = document.getElementById('arcog_resultsTable');
+        const tableBody = document.getElementById('arcog_tableBody');
+        const columnIndex = parseInt(headerCell.dataset.columnIndex);
+        const columnKey = headerCell.dataset.columnKey; // Key from the data object
+
+        // Determine sort direction
+        if (arcog_currentSortColumn === headerCell) {
+          arcog_currentSortDirection = arcog_currentSortDirection === 'asc' ? 'desc' : 'asc';
         } else {
-          filteredGenes = globalMapping.filter(item => selectedOptions.includes(item["Annotation Code"]));
-        }
-        if (filteredGenes.length === 0) {
-          document.getElementById('arcog_filterMessage').textContent = "No genes found for the selected option.";
-          return;
-        }
-        const dataset = deSeq2Files[0];
-        const groups = {};
-        filteredGenes.forEach(geneObj => {
-          const code = geneObj["Annotation Code"];
-          if (!groups[code]) {
-            groups[code] = { up: 0, neutral: 0, down: 0 };
+          if (arcog_currentSortColumn) {
+            // Reset arrow on previously sorted column
+            const prevArrow = arcog_currentSortColumn.querySelector('.sort-arrow');
+            if (prevArrow) {
+              prevArrow.classList.remove('asc', 'desc');
+            }
           }
-          const geneId = geneObj["Gene (locus_tag)"];
-          let entry = dataset.find(row => row.Gene && row.Gene.toUpperCase() === geneId.toUpperCase());
-          if (!entry) {
-            entry = dataset.find(row => row.Gene && row.Gene.toUpperCase().includes(geneId.toUpperCase()));
-          }
-          let classification = "neutral";
-          if (entry && entry.log2FoldChange && entry.pvalue) {
-            const fc = parseFloat(entry.log2FoldChange);
-            const p = parseFloat(entry.pvalue);
-            if (fc >= 1 && p <= 0.05) classification = "up";
-            else if (fc <= -1 && p <= 0.05) classification = "down";
-          }
-          groups[code][classification]++;
-        });
-        const upData = [];
-        const neutralData = [];
-        const downData = [];
-        const scale = 10;
-        Object.keys(groups).forEach(code => {
-          const group = groups[code];
-          const total = group.up + group.neutral + group.down;
-          upData.push({
-            x: code,
-            y: 2,
-            z: total ? (group.up / total) * scale : 0,
-            count: group.up,
-            total: total
-          });
-          neutralData.push({
-            x: code,
-            y: 1,
-            z: total ? (group.neutral / total) * scale : 0,
-            count: group.neutral,
-            total: total
-          });
-          downData.push({
-            x: code,
-            y: 0,
-            z: total ? (group.down / total) * scale : 0,
-            count: group.down,
-            total: total
-          });
-        });
-        const ctxContainer = document.getElementById('arcog_barChart');
-        if (arcog_barChartInstance) {
-          arcog_barChartInstance.destroy();
+          arcog_currentSortColumn = headerCell;
+          arcog_currentSortDirection = 'asc';
         }
-        arcog_barChartInstance = new ApexCharts(ctxContainer, {
-          chart: {
-            type: 'bubble',
-            background: 'transparent',
-            animations: { easing: 'easeOutQuart', speed: 800 }
-          },
-          layout: {
-            padding: { left: 300, right: 300, top: 0, bottom: 0 }
-          },
-          plotOptions: {
-            bubble: { minBubbleRadius: 2, maxBubbleRadius: 20 }
-          },
-          series: [
-            { name: "Upregulated", data: upData },
-            { name: "Unaffected", data: neutralData },
-            { name: "Downregulated", data: downData }
-          ],
-          xaxis: {
-            type: 'category',
-            tickPlacement: 'between',
-            title: { text: 'Annotation Code', style: { fontSize: '16px', color: "#000000" } },
-            labels: { style: { colors: "#000000" } },
-            axisBorder: { color: "#000000" },
-            axisTicks: { color: "#000000" }
-          },
-          yaxis: {
-            min: -0.5,
-            max: 2.5,
-            show: false,
-            axisBorder: { color: "#000000" },
-            axisTicks: { color: "#000000" }
-          },
-          markers: {
-            strokeColors: ['#000', '#000', '#000'],
-            strokeWidth: 2
-          },
-          legend: {
-            show: true,
-            labels: { colors: '#000000', fontSize: '14px' }
-          },
-          dataLabels: { enabled: false }
+
+        // Update arrow indicator
+        const allArrows = table.querySelectorAll('th .sort-arrow');
+        allArrows.forEach(arrow => arrow.classList.remove('asc', 'desc')); // Clear all arrows
+        const currentArrow = headerCell.querySelector('.sort-arrow');
+        if (currentArrow) {
+          currentArrow.classList.add(arcog_currentSortDirection);
+        }
+
+
+        // Sort the data (use currentData passed from the display function)
+        const sortedData = [...currentData].sort((a, b) => {
+          let valA = a[columnKey];
+          let valB = b[columnKey];
+
+          // Try to convert to number for numerical sort, otherwise string sort
+          const numA = parseFloat(valA);
+          const numB = parseFloat(valB);
+
+          if (!isNaN(numA) && !isNaN(numB)) {
+            valA = numA;
+            valB = numB;
+          } else {
+            // Case-insensitive string comparison
+            valA = String(valA).toUpperCase();
+            valB = String(valB).toUpperCase();
+          }
+
+          if (valA < valB) {
+            return arcog_currentSortDirection === 'asc' ? -1 : 1;
+          }
+          if (valA > valB) {
+            return arcog_currentSortDirection === 'asc' ? 1 : -1;
+          }
+          return 0;
         });
-        arcog_barChartInstance.render();
+
+        // Re-populate the table body with sorted data
+        tableBody.innerHTML = ""; // Clear existing rows
+        const columns = Object.keys(sortedData[0] || {}); // Get columns from sorted data
+        sortedData.forEach(row => {
+          const tr = document.createElement('tr');
+          columns.forEach(colName => {
+            const td = document.createElement('td');
+            td.textContent = row[colName];
+            tr.appendChild(td);
+          });
+          tableBody.appendChild(tr);
+        });
       }
+
       function arcog_clearAll() {
         deSeq2Files = [];
         deSeq2Data = [];
         document.getElementById('arcog_deseq2Input').value = "";
-        if (arcog_barChartInstance) {
-          arcog_barChartInstance.destroy();
-          arcog_barChartInstance = null;
-        }
         document.getElementById('arcog_annotationDropdown').selectedIndex = -1;
         document.getElementById('arcog_resultsTable').style.display = "none";
         document.getElementById('arcog_searchMessage').textContent = "";
         document.getElementById('arcog_filterMessage').textContent = "";
       }
-      function arcog_exportPlot() {
-        if (arcog_barChartInstance) {
-          const fileName = deSeq2Files[0]?.fileName ? deSeq2Files[0].fileName + "_bubbleplot.png" : "bubbleplot.png";
-          arcog_barChartInstance.dataURI().then(({ imgURI }) => {
-            const a = document.createElement('a');
-            a.href = imgURI;
-            a.download = fileName;
-            a.click();
-          }).catch(() => {
-            alert("Export failed.");
-          });
-        } else {
-          alert("No chart available to export.");
-        }
-      }
+
       document.getElementById('arcog_filterBtn').addEventListener('click', arcog_filterByAnnotationCode);
-      document.getElementById('arcog_plotBtn').addEventListener('click', arcog_generateBubblePlot);
       document.getElementById('arcog_exportTableBtn').addEventListener('click', arcog_exportTable);
       document.getElementById('arcog_clearBtn').addEventListener('click', arcog_clearAll);
       document.getElementById('arcog_deseq2Input').addEventListener('change', function (e) {
@@ -1366,18 +1332,20 @@
       const motifsTab = document.getElementById('motifsTab');
       const arCOGAnalysisTab = document.getElementById('arCOGAnalysisTab');
       function clearActiveTabs() {
-        viewerTab.classList.remove('active');
-        tablesTab.classList.remove('active');
-        pairsTab.classList.remove('active');
-        genomeViewerTab.classList.remove('active');
-        motifsTab.classList.remove('active');
-        arCOGAnalysisTab.classList.remove('active');
-        viewerTabBtn.classList.remove('active');
-        tablesTabBtn.classList.remove('active');
-        pairsTabBtn.classList.remove('active');
-        genomeViewerTabBtn.classList.remove('active');
-        motifsTabBtn.classList.remove('active');
-        arCOGAnalysisBtn.classList.remove('active');
+        const tabContents = [viewerTab, tablesTab, pairsTab, genomeViewerTab, motifsTab, arCOGAnalysisTab];
+        const tabButtons = [viewerTabBtn, tablesTabBtn, pairsTabBtn, genomeViewerTabBtn, motifsTabBtn, arCOGAnalysisBtn];
+
+        tabContents.forEach(tab => {
+          if (tab) { // Check if the element exists
+            tab.classList.remove('active');
+          }
+        });
+
+        tabButtons.forEach(button => {
+          if (button) { // Check if the element exists
+            button.classList.remove('active');
+          }
+        });
       }
       viewerTabBtn.addEventListener('click', function () {
         clearActiveTabs();
@@ -1413,7 +1381,7 @@
                 color: "#81d4fa",
                 displayMode: "EXPANDED",
                 height: 100,
-                filterTypes: ['CDS', 'rRNA', 'exon', 'RNase_P_RNA','tRNA'],
+                filterTypes: ['CDS', 'rRNA', 'exon', 'RNase_P_RNA', 'tRNA'],
                 searchable: true,
                 searchableFields: ['Name', 'locus_tag', 'old_locus_tag']
               },
@@ -1699,7 +1667,7 @@
           },
           title: { text: gene, style: { fontSize: '20px', color: '#e0e0e0' } },
           plotOptions: { bar: { borderRadius: 4, horizontal: false } },
-          dataLabels: { enabled: false }, 
+          dataLabels: { enabled: false },
           legend: { show: false }
         });
         pairsChart.render();
