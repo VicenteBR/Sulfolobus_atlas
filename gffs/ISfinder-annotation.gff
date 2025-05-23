@@ -2,17 +2,17 @@
 # This file contains annotation for Insertion Sequences (IS)
 # Chromosome: NC_007181.1
 # Source: ISFinder
-NC_007181.1	ISFinder	transposable_element	226899	227720	.	.	.	ID=Partial;Name=Partial;Family=IS200/IS605;Group=.;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	405920	407241	.	+	.	ID=Partial;Name=Partial;Family=IS200/IS605;Group=.;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	409528	409557	.	+	.	ID=ISSto1;Name=ISSto1;Family=IS200/IS605;Group=.;Partial_IS_Coordinates_Begin_on_IS=1767;Partial_IS_Coordinates_End_on_IS=1796;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	417622	418875	.	+	.	ID=ISSto1;Name=ISSto1;Family=IS200/IS605;Group=.;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	417900	418895	.	+	.	ID=Partial;Name=Partial;Family=IS200/IS605;Group=.;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	421551	421580	.	.	.	ID=ISSto1;Name=ISSto1;Family=IS200/IS605;Group=.;Partial_IS_Coordinates_Begin=1767;Partial_IS_Coordinates_End=1796;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	615056	615070	.	.	.	ID=ISC1048;Name=ISC1048;Family=IS630;Group=.;Partial_IS_Coordinates_Begin_on_IS=1030;Partial_IS_Coordinates_End_on_IS=1044;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	1234260	1234739	.	.	.	ID=Partial;Name=Partial;Family=IS6;Group=.;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	1239987	1240014	.	+	.	ID=ISSto1;Name=ISSto1;Family=IS200/IS605;Group=.;Partial_IS_Coordinates_Begin_on_IS=1768;Partial_IS_Coordinates_End_on_IS=1795;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	1752072	1753335	.	.	.	ID=Partial;Name=Partial;Family=IS200/IS605;Group=.;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	1764514	1764855	.	+	.	ID=ISSto1;Name=ISSto1;Family=IS200/1S605;Group=.;Partial_IS_Coordinates_Begin_on_IS=1;Partial_IS_Coordinates_End_on_IS=342;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	1835913	1837798	.	+	.	ID=Partial;Name=Partial;Family=IS607;Group=.;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	1836532	1837788	.	+	.	ID=Partial;Name=Partial;Family=IS607;Group=.;Comments=Partial
-NC_007181.1	ISFinder	transposable_element	2151210	2151239	.	.	.	ID=ISSto1;Name=ISSto1;Family=IS200/IS605;Group=.;Partial_IS_Coordinates_Begin_on_IS=1767;Partial_IS_Coordinates_End_on_IS=1796;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	226899	227720	.	-	.	ID=Partial_A;Name=Partial_A;Family=IS200/IS605;Group=.;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	405920	407241	.	+	.	ID=Partial_B;Name=Partial_B;Family=IS200/IS605;Group=.;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	409528	409557	.	+	.	ID=ISSto1_A;Name=ISSto1_A;Family=IS200/IS605;Group=.;Partial_IS_Coordinates_Begin_on_IS=1767;Partial_IS_Coordinates_End_on_IS=1796;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	417622	418875	.	+	.	ID=ISSto1_B;Name=ISSto1_B;Family=IS200/IS605;Group=.;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	417900	418895	.	+	.	ID=Partial_C;Name=Partial_C;Family=IS200/IS605;Group=.;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	421551	421580	.	-	.	ID=ISSto1_C;Name=ISSto1_C;Family=IS200/IS605;Group=.;Partial_IS_Coordinates_Begin=1767;Partial_IS_Coordinates_End=1796;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	615056	615070	.	-	.	ID=ISC1048;Name=ISC1048;Family=IS630;Group=.;Partial_IS_Coordinates_Begin_on_IS=1030;Partial_IS_Coordinates_End_on_IS=1044;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	1234260	1234739	.	-	.	ID=Partial_D;Name=Partial_D;Family=IS6;Group=.;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	1239987	1240014	.	+	.	ID=ISSto1_D;Name=ISSto1_D;Family=IS200/IS605;Group=.;Partial_IS_Coordinates_Begin_on_IS=1768;Partial_IS_Coordinates_End_on_IS=1795;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	1752072	1753335	.	-	.	ID=Partial_E;Name=Partial_E;Family=IS200/IS605;Group=.;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	1764514	1764855	.	+	.	ID=ISSto1_E;Name=ISSto1_E;Family=IS200/1S605;Group=.;Partial_IS_Coordinates_Begin_on_IS=1;Partial_IS_Coordinates_End_on_IS=342;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	1835913	1837798	.	+	.	ID=Partial_F;Name=Partial_F;Family=IS607;Group=.;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	1836532	1837788	.	+	.	ID=Partial_G;Name=Partial_G;Family=IS607;Group=.;Comments=Partial
+NC_007181.1	ISFinder	transposable_element	2151210	2151239	.	-	.	ID=ISSto1_F;Name=ISSto1_F;Family=IS200/IS605;Group=.;Partial_IS_Coordinates_Begin_on_IS=1767;Partial_IS_Coordinates_End_on_IS=1796;Comments=Partial
