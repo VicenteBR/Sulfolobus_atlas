@@ -1,0 +1,2205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>S. acidocaldarius transcriptomic atlas (Brück et al, 2025)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Replace Chart.js with ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/igv/dist/igv.css">
+  <style>
+    /* Standardize all button styling */
+    button {
+      background-color: #2e2e2e;
+      color: #e0e0e0;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 10px 15px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s ease, border-color 0.3s ease;
+      outline: none;
+    }
+
+    button:hover {
+      background-color: #222;
+      border-color: #777;
+    }
+
+    button:active {
+      background-color: #1e1e1e;
+      border-color: #666;
+    }
+
+    /* Standardize form elements: dropdowns, search bars, file inputs */
+    select,
+    input[type="text"],
+    input[type="file"] {
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 16px;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    select:focus,
+    input[type="text"]:focus {
+      border-color: #0072B2;
+      outline: none;
+    }
+
+    .apexcharts-menu,
+    .apexcharts-menu * {
+      color: #000 !important;
+      text-align: center;
+    }
+
+    /* Base styling */
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #121212;
+      margin: 20px;
+      color: #e0e0e0;
+      text-align: center;
+    }
+
+    h1 {
+      text-align: center;
+      color: #f0f0f0;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 1240px;
+      margin: auto;
+      padding: 2%;
+      background: #1e1e1e;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Tab styling */
+    .tab-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .tab-bar {
+        flex-direction: column;
+      }
+
+      .container {
+        padding: 10px;
+      }
+
+      #igvContainer {
+        height: calc(100vh - 200px);
+      }
+
+      #chartCanvas,
+      #pairsChartCanvas {
+        min-height: 200px;
+      }
+    }
+
+    .tab-bar button {
+      flex: 1;
+    }
+
+    .tab-bar button.active {
+      background-color: #0072B2;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Viewer Tab styling */
+    #chartCanvas {
+      margin-top: 20px;
+      background: transparent;
+      min-height: 300px;
+    }
+
+    #legend {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      font-size: 16px;
+    }
+
+    #legend div {
+      display: flex;
+      align-items: center;
+    }
+
+    #legend div span {
+      margin-left: 5px;
+    }
+
+    .legend-box {
+      width: 20px;
+      height: 20px;
+      border: 1px solid #fff;
+    }
+
+    /* Data Tables styling */
+    #tableList {
+      margin-bottom: 20px;
+    }
+
+    #tableList table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
+
+    #tableList th,
+    #tableList td {
+      border: 1px solid #555;
+      padding: 8px;
+      text-align: left;
+    }
+
+    #tableList th {
+      background-color: #2e2e2e;
+    }
+
+    #tableDisplay {
+      max-height: 400px;
+      overflow-x: auto;
+      overflow-y: auto;
+      border: 1px solid #555;
+    }
+
+    #tableDisplay table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #tableDisplay th,
+    #tableDisplay td {
+      border: 1px solid #555;
+      padding: 5px;
+    }
+
+    #tableDisplay th {
+      background-color: #2e2e2e;
+    }
+
+    /* asRNA/mRNA pairs styling */
+    .upload-group {
+      margin-bottom: 15px;
+    }
+
+    .upload-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .upload-group input {
+      width: auto;
+    }
+
+    .status-message {
+      color: #D55E00;
+      margin-top: 5px;
+    }
+
+    .pairs-section {
+      margin-top: 20px;
+    }
+
+    .pairs-section h2 {
+      margin-bottom: 15px;
+    }
+
+    .pairs-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    .pairs-table th,
+    .pairs-table td {
+      padding: 8px 12px;
+      border: 1px solid #555;
+      text-align: left;
+    }
+
+    .pairs-table th {
+      background-color: #2e2e2e;
+    }
+
+    .significant {
+      font-weight: bold;
+    }
+
+    /* Genome Viewer Tab styling */
+    #igvContainer {
+      width: 100%;
+      height: calc(100vh - 150px);
+      margin: auto;
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      padding: 10px;
+    }
+
+    #igvContainer svg text,
+    #igvContainer svg tspan {
+      fill: #000 !important;
+      color: #000 !important;
+    }
+
+    #igvContainer .igv-container {
+      background-color: #000000 !important;
+    }
+
+    #igvContainer .igv-track-label {
+      color: #000 !important;
+    }
+
+    #igvContainer .igv-track {
+      border: 1px solid #000 !important;
+    }
+
+    #igvContainer .igv-axis,
+    #igvContainer .igv-popover-label,
+    #igvContainer .igv-popover-content {
+      color: #000 !important;
+    }
+
+    #igvContainer .igv-control-pane,
+    #igvContainer .igv-menu-bar-container {
+      background-color: #ffffff !important;
+    }
+
+    #igvContainer .igv-locus-bar {
+      background-color: #000 !important;
+    }
+
+    #igvContainer .igv-locus-label,
+    #igvContainer .igv-locus-input {
+      background-color: #000000 !important;
+      color: #000 !important;
+    }
+
+    #igvContainer .igv-icon,
+    #igvContainer .igv-glyph-count,
+    #igvContainer .igv-zoom-handles path {
+      fill: #000 !important;
+      stroke: #000 !important;
+    }
+
+    #igvContainer .igv-popover {
+      background-color: #000 !important;
+      border: 1px solid #000 !important;
+      border-radius: 6px !important;
+      color: #000 !important;
+    }
+
+    #igvContainer .igv-track-label,
+    #igvContainer .igv-track-label * {
+      color: #000 !important;
+      fill: #000 !important;
+    }
+
+    #igvContainer .igv-popover,
+    #igvContainer .igv-popover * {
+      color: #000 !important;
+    }
+
+    /* Processing Site Motifs Tab Styles */
+    #motifsTab .motifs-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    #motifsTab .section {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #motifsTab .section-top,
+    #motifsTab .section-bottom {
+      flex: 1;
+      padding: 15px;
+    }
+
+    #motifsTab .section-top {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #2e2e2e;
+    }
+
+    #motifsTab .svg-wrapper {
+      background: #ffffff;
+      max-width: 100%;
+      height: auto;
+      border: 4px solid #ccc;
+      border-radius: 4px;
+      padding: 5px;
+      display: inline-block;
+    }
+
+    #motifsTab .svg-wrapper img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    #motifsTab .section-bottom {
+      background: #2e2e2e;
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid #333;
+    }
+
+    #motifsTab .section-bottom select {
+      margin-bottom: 10px;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    #motifsTab .section-bottom select:hover {
+      background: #222;
+      border-color: #777;
+    }
+
+    #motifsTab .btn-container {
+      margin-bottom: 10px;
+      display: flex;
+      gap: 10px;
+    }
+
+    #motifsTab .btn-container button {
+      flex: 1;
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      cursor: pointer;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    #motifsTab .btn-container button:hover {
+      background: #222;
+      border-color: #777;
+    }
+
+    #motifsTab .section-bottom pre {
+      flex: 1;
+      padding: 15px;
+      background: #1e1e1e;
+      border: 1px solid #555;
+      border-radius: 4px;
+      overflow: auto;
+      white-space: pre-wrap;
+      color: #e0e0e0;
+      font-size: 14px;
+    }
+
+    /* Save Chart Button Styles */
+    .save-chart-btn {
+      margin-top: 10px;
+    }
+
+    /* Additional styles for arCOG analysis */
+    .arCOG-container {
+      max-width: 1200px;
+      margin: auto;
+      background-color: #1e1e1e;
+      padding: 10px 20px 20px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    .arCOG-header-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+    }
+
+    .arCOG-left {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .arCOG-left label {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+
+    .arCOG-middle {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .arCOG-middle label {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 2px;
+    }
+
+    .arCOG-middle select {
+      padding: 6px;
+      font-size: 14px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background-color: #222;
+      color: #e0e0e0;
+      outline: none;
+      width: 350px;
+      height: 200px;
+    }
+
+    .arCOG-right {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .arCOG-right button {
+      width: 200px;
+    }
+
+    .arCOG-header-controls input[type="file"],
+    .arCOG-header-controls select {
+      padding: 6px;
+      font-size: 14px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background-color: #222;
+      color: #e0e0e0;
+      outline: none;
+    }
+
+    .arCOG-table-container {
+      width: 100%;
+      max-height: 60vh;
+      overflow-y: auto;
+      margin-bottom: 20px;
+      border: 1px solid #444;
+    }
+
+    .arCOG-results-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    .arCOG-results-table th,
+    .arCOG-results-table td {
+      border: 1px solid #555;
+      padding: 8px;
+      text-align: center;
+      font-size: 8;
+    }
+
+    .arCOG-results-table th .header-text {
+      display: block;
+      padding: 8px;
+      padding-right: 25px;
+      white-space: nowrap;
+      overflow: auto;
+      text-align: inherit;
+    }
+
+    .arCOG-results-table th {
+      background-color: #2e2e2e;
+    }
+
+    .arCOG-results-table th {
+      position: sticky;
+      top: 0;
+      background-color: #2e2e2e;
+      z-index: 10;
+      cursor: pointer;
+      padding-right: 25px;
+      padding: 8px
+    }
+
+    .arCOG-results-table td {
+      text-align: center;
+    }
+
+    .arCOG-message {
+      text-align: center;
+      margin-top: 5px;
+      color: #ffb74d;
+    }
+
+    #helpButton {
+      background-color: #2e2e2e;
+      /* Primary blue */
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    #helpButton:hover {
+      background-color: #000000;
+    }
+
+    #legendTableContainer table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: Arial, sans-serif;
+    }
+
+    #legendTableContainer thead {
+      background-color: #2e2e2e;
+      color: #fff;
+    }
+
+    #legendTableContainer th,
+    #legendTableContainer td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    #legendTableContainer tbody tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+
+    #legendTableContainer tbody tr:hover {
+      background-color: #f1f1f1;
+    }
+
+    /* Bubble chart container */
+    #arcog_barChart {
+      width: 100%;
+      height: 40vh;
+      margin-top: 20px;
+      background-color: #f5efef;
+      border: 2px solid #555;
+      border-radius: 4px;
+      padding: 10px;
+    }
+
+    #tableControls {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+      background-color: #1e1e1e;
+      padding: 10px;
+      border: 1px solid #555;
+      border-radius: 4px;
+    }
+
+    #tableList input[type="checkbox"] {
+      transform: scale(1.5);
+      display: block;
+      margin: 0 auto;
+    }
+
+    #plotButton {
+      position: relative;
+      left: 0px;
+      top: 5px;
+    }
+
+    #prevGene,
+    #nextGene {
+      width: 150px;
+    }
+
+    /* Modal styles for legend table */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 800px;
+      text-align: left;
+      color: #000;
+    }
+
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    /* Resources styling */
+    #resourcesTab {
+      max-width: 1200px;
+      margin: auto;
+      background-color: #1e1e1e;
+      padding: 10px 20px 20px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    .resource-list {
+      list-style: none;
+      padding-left: 0;
+      text-align: left;
+      font-size: 1.05em;
+      line-height: 1.8;
+    }
+
+    .resource-list li {
+      margin-bottom: 10px;
+      color: #ccc;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .resource-list .dash {
+      margin-right: 10px;
+      color: #888;
+      font-weight: bold;
+      width: 10px;
+      display: inline-block;
+    }
+
+    .resource-list a {
+      color: #4db8ff;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .resource-list a:hover {
+      color: #ffffff;
+      text-decoration: underline;
+    }
+
+    /* Footer styling */
+    .footer {
+      margin-top: 40px;
+      padding: 20px;
+      font-size: 0.9em;
+      color: #888;
+      text-align: center;
+    }
+
+    .footer a {
+      color: #aaa;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      color: #fff;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="tab-bar">
+      <button id="viewerTabBtn" class="active">Expression Profiles</button>
+      <button id="tablesTabBtn">Expression Tables Viewer</button>
+      <button id="pairsTabBtn">asRNA/mRNA pairs</button>
+      <button id="genomeViewerTabBtn">Genome Viewer</button>
+      <button id="motifsTabBtn">Processing Site Motifs</button>
+      <button id="arCOGAnalysisBtn">arCOG analysis</button>
+      <button id="resourcesTabBtn">Useful Resources</button>
+    </div>
+
+    <!-- Viewer Tab -->
+    <div id="viewerTab" class="tab-content active">
+      <hr>
+      <div class="gene-nav">
+        <button id="prevGene">Previous</button>
+        <input type="text" id="geneInput" list="geneList" placeholder="Enter gene name">
+        <button id="nextGene">Next</button>
+        <datalist id="geneList"></datalist>
+      </div>
+      <div style="text-align: center;"><button id="plotButton">Plot Gene Expression</button></div>
+      <div id="chartCanvas"></div>
+      <div id="legend">
+        <div>
+          <div class="legend-box" style="background-color: #4fc3f7;"></div>
+          <span>p ≤ 0.05 (Significant)</span>
+        </div>
+        <div>
+          <div class="legend-box" style="background-color: #ffb74d;"></div>
+          <span>p > 0.05 (Non-significant)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Tables Tab -->
+    <div id="tablesTab" class="tab-content">
+      <h2>Loaded Tables</h2>
+      <div id="tableControls">
+        <button class="select-all-checkboxes">Select All</button>
+        <button class="clear-all-checkboxes">Clear All</button>
+      </div>
+      <div id="tableList"></div>
+      <div id="tableControls">
+        <button class="select-all-checkboxes">Select All</button>
+        <button class="clear-all-checkboxes">Clear All</button>
+        <button id="toTopButton">Return to Top</button>
+      </div>
+      <div id="tableDisplay"></div>
+    </div>
+
+    <!-- asRNA/mRNA pairs Tab -->
+    <div id="pairsTab" class="tab-content">
+      <h2>asRNA/mRNA Pairs Explorer</h2>
+      <p id="uploadStatusPairs" class="status-message"></p>
+      <div class="gene-nav">
+        <button id="prevGenePairs">Previous Gene</button>
+        <select id="geneSelectPairs"></select>
+        <button id="nextGenePairs">Next Gene</button>
+      </div>
+      <div id="pairsChartCanvas"></div>
+      <div id="pairsLegend" style="margin-top: 10px; display: flex; gap: 15px; justify-content: center;">
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <div style="width: 20px; height: 20px; background-color: #4fc3f7; border: 1px solid #fff;"></div>
+          <span>Gene (p ≤ 0.05)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <div style="width: 20px; height: 20px; background-color: #a9e3f7; border: 1px solid #fff;"></div>
+          <span>Gene (p > 0.05)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <div style="width: 20px; height: 20px; background-color: #ffb74d; border: 1px solid #fff;"></div>
+          <span>asRNA (p ≤ 0.05)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <div style="width: 20px; height: 20px; background-color: #ffd8a5; border: 1px solid #fff;"></div>
+          <span>asRNA (p > 0.05)</span>
+        </div>
+      </div>
+      <div class="pairs-section">
+        <h2>Correlation Summary</h2>
+        <table class="pairs-table">
+          <thead>
+            <tr>
+              <th>Gene</th>
+              <th>asRNA</th>
+              <th>Correlation</th>
+              <th>Correlation p‑value</th>
+              <th># Experiments</th>
+            </tr>
+          </thead>
+          <tbody id="correlationTableBodyPairs"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Genome Viewer Tab -->
+    <div id="genomeViewerTab" class="tab-content">
+      <div id="igvContainer"></div>
+    </div>
+
+    <!-- Processing Site Motifs Tab -->
+    <div id="motifsTab" class="tab-content">
+      <div class="motifs-container">
+        <!-- Section 1 -->
+        <div class="section">
+          <div class="section-top">
+            <div class="svg-wrapper">
+              <img src="svg/motif-1-weblogo.svg" alt="SVG 1">
+            </div>
+          </div>
+          <div class="section-bottom">
+            <select id="fastaSelect1"></select>
+            <div class="btn-container">
+              <button id="copyCoord1">Copy Coordinates</button>
+              <button id="copySeq1">Copy Sequence</button>
+            </div>
+            <pre id="sequenceDisplay1"></pre>
+          </div>
+        </div>
+        <!-- Section 2 -->
+        <div class="section">
+          <div class="section-top">
+            <div class="svg-wrapper">
+              <img src="svg/motif-2-weblogo.svg" alt="SVG 2">
+            </div>
+          </div>
+          <div class="section-bottom">
+            <select id="fastaSelect2"></select>
+            <div class="btn-container">
+              <button id="copyCoord2">Copy Coordinates</button>
+              <button id="copySeq2">Copy Sequence</button>
+            </div>
+            <pre id="sequenceDisplay2"></pre>
+          </div>
+        </div>
+        <!-- Section 3 -->
+        <div class="section">
+          <div class="section-top">
+            <div class="svg-wrapper">
+              <img src="svg/motif-3-weblogo.svg" alt="SVG 3">
+            </div>
+          </div>
+          <div class="section-bottom">
+            <select id="fastaSelect3"></select>
+            <div class="btn-container">
+              <button id="copyCoord3">Copy Coordinates</button>
+              <button id="copySeq3">Copy Sequence</button>
+            </div>
+            <pre id="sequenceDisplay3"></pre>
+          </div>
+        </div>
+        <!-- Section 4 -->
+        <div class="section">
+          <div class="section-top">
+            <div class="svg-wrapper">
+              <img src="svg/motif-4-weblogo.svg" alt="SVG 4">
+            </div>
+          </div>
+          <div class="section-bottom">
+            <select id="fastaSelect4"></select>
+            <div class="btn-container">
+              <button id="copyCoord4">Copy Coordinates</button>
+              <button id="copySeq4">Copy Sequence</button>
+            </div>
+            <pre id="sequenceDisplay4"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- New arCOG analysis Tab -->
+    <div id="arCOGAnalysisTab" class="tab-content">
+      <div class="arCOG-container">
+        <div class="arCOG-header-controls" style="display: flex; align-items: flex-start; gap: 10px;">
+          <div class="arCOG-left" style="display: flex; flex-direction: column;">
+            <label for="arcog_deseq2Input">Load Expression table</label>
+            <input type="file" id="arcog_deseq2Input" accept=".txt,.tsv,.tab,.csv" title="Load DESeq2 Table(s)">
+          </div>
+          <div class="arCOG-middle" style="display: flex; flex-direction: column;">
+            <label for="arcog_annotationDropdown">Select functional class:
+              <button id="helpButton" title="View arCOG functional class legend">?</button>
+            </label>
+            <select id="arcog_annotationDropdown" multiple style="width: 350px; height: 200px;"></select>
+          </div>
+          <div class="arCOG-right" style="display: flex; flex-direction: column; gap: 5px;">
+            <button id="arcog_filterBtn">Generate Table</button>
+            <button id="arcog_exportTableBtn">Export Table</button>
+            <button id="arcog_clearBtn">Clear All</button>
+          </div>
+        </div>
+        <div class="arCOG-message" id="arcog_searchMessage"></div>
+        <div class="arCOG-message" id="arcog_filterMessage"></div>
+        <div class="arCOG-table-container">
+          <table class="arCOG-results-table" id="arcog_resultsTable" style="display:none;">
+            <thead>
+              <tr id="arcog_tableHeader"></tr>
+            </thead>
+            <tbody id="arcog_tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="resourcesTab" class="tab-content">
+    <h2 style="margin-bottom: 20px; text-align: left;">Useful Resources</h2>
+    <ul class="resource-list">
+      <li>
+        <a href="https://blast.ncbi.nlm.nih.gov/Blast.cgi" target="_blank" rel="noopener noreferrer">NCBI BLAST</a> –
+        Sequence alignment and similarity search.
+      </li>
+      <li>
+        <a href="https://www.uniprot.org/" target="_blank" rel="noopener noreferrer">UniProt</a> – Protein sequence and
+        function database.
+      </li>
+      <li>
+        <a href="https://rna.tbi.univie.ac.at/" target="_blank" rel="noopener noreferrer">ViennaRNA Web Services</a> –
+        RNA secondary structure prediction tools.
+      </li>
+      <li>
+        <a href="https://www.genome.jp/kegg/" target="_blank" rel="noopener noreferrer">KEGG</a> – Pathway and genome
+        annotation.
+      </li>
+      <li>
+        <a href="https://www.arb-silva.de/" target="_blank" rel="noopener noreferrer">SILVA</a> – rRNA sequence
+        reference database.
+      </li>
+      <li>
+        <a href="https://www.archaea.bio/" target="_blank" rel="noopener noreferrer">Archaea.bio</a> – The Society for
+        Archaeal Biology.
+      </li>
+      </li>
+      <li>
+        <a href="http://nibiru.tbi.univie.ac.at/TSSAR/output" target="_blank" rel="noopener noreferrer">TSSAR</a> –
+        TTranscription Start Site Annotation Regime Web Service.
+      </li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <a href="https://scholar.google.com/" target="_blank" rel="noopener noreferrer">Brück et al., 2025</a><br>
+    <a href="https://www.uni-marburg.de/de" target="_blank" rel="noopener noreferrer">
+      Philipps-Universität Marburg</a><br>
+    <a href="https://www.uni-marburg.de/de/fb17/fachgebiete/genetik/ag-randau" target="_blank"
+      rel="noopener noreferrer">
+      Prokaryotic RNA Biology Group (AG Lennart Randau)</a><br>
+    <a href="mailto:jose.gomes@uni-marburg.de" style="color: #aaa; text-decoration: none;">
+      gomesfil@staff.uni-marburg.de
+    </a><br>
+    Last updated July 2025
+  </div>
+
+
+
+  <!-- Modal Popup for arCOG Legend Table -->
+  <div id="modalHelp" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>arCOG Functional Class Legend</h2>
+      <div id="legendTableContainer">
+        <p>Loading legend table...</p>
+      </div>
+      <button id="saveTable">Save as CSV</button>
+    </div>
+  </div>
+
+  <!-- IGV.js script for Genome Viewer -->
+  <script src="https://cdn.jsdelivr.net/npm/igv/dist/igv.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      /* -------------------- Global Variables for Tabs -------------------- */
+      let gffData = [];
+      let arCOGData = [];
+      let sulfoCogData = [];
+      let arCOGNamesData = [];
+      let deSeq2Data = [];
+      let globalMapping = [];
+      let deSeq2Files = [];
+      let chart; // Expression Profiles chart (ApexCharts instance)
+      let pairsChart = null; // asRNA/mRNA pairs chart
+      let dataFiles = [];
+      let geneArray = [];
+      let arcog_currentSortColumn = null;
+      let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
+      let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
+
+      /* -------------------- Data Loading Functions -------------------- */
+      function loadGFFData() {
+        return fetch('arcogs/Sacidocaldarius-2024-curated.txt')
+          .then(response => response.text())
+          .then(text => {
+            const lines = text.split("\n");
+            gffData = [];
+            lines.forEach(line => {
+              if (line.startsWith("#") || line.trim() === "") return;
+              const cols = line.split("\t");
+              if (cols[2] && cols[2].toLowerCase() === "gene") {
+                const attrText = cols[8];
+                const attributes = {};
+                attrText.split(";").forEach(pair => {
+                  const [key, value] = pair.split("=");
+                  if (key && value) {
+                    attributes[key.trim()] = value.trim();
+                  }
+                });
+                gffData.push({
+                  locus_tag: attributes.locus_tag || "",
+                  name: attributes.Name || "",
+                  old_locus_tag: attributes.old_locus_tag || ""
+                });
+              }
+            });
+          })
+          .catch(error => {
+            console.error("Error loading GFF data:", error);
+            document.getElementById('arcog_searchMessage').textContent = "Failed to load GFF data.";
+          });
+      }
+      document.getElementById("geneInput").addEventListener("click", function () {
+        this.select();
+      });
+      document.querySelectorAll('.select-all-checkboxes').forEach(button => {
+        button.addEventListener('click', function () {
+          const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
+          checkboxes.forEach(checkbox => checkbox.checked = true);
+        });
+      });
+      document.querySelectorAll('.clear-all-checkboxes').forEach(button => {
+        button.addEventListener('click', function () {
+          const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
+          checkboxes.forEach(checkbox => checkbox.checked = false);
+        });
+      });
+      document.getElementById('toTopButton').addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      function loadArCOGData() {
+        return fetch('arcogs/S_acidocaldarius_arCOGs.txt')
+          .then(response => response.text())
+          .then(text => {
+            const results = Papa.parse(text, { delimiter: " ", header: false, skipEmptyLines: true });
+            arCOGData = results.data.map(row => ({
+              gene: row[0],
+              sulfoCode: row[6]
+            }));
+          })
+          .catch(error => {
+            console.error("Error loading arCOG mapping data:", error);
+            document.getElementById('arcog_searchMessage').textContent = "Failed to load arCOG mapping data.";
+          });
+      }
+      function loadSulfoCogData() {
+        return fetch('arcogs/Sulfo_cog2ar.txt')
+          .then(response => response.text())
+          .then(text => {
+            const results = Papa.parse(text, { delimiter: " ", header: false, skipEmptyLines: true });
+            sulfoCogData = results.data.map(row => ({
+              sulfoCode: row[0],
+              arCOGCode: row[4]
+            }));
+          })
+          .catch(error => {
+            console.error("Error loading Sulfo_cog2ar data:", error);
+            document.getElementById('arcog_searchMessage').textContent = "Failed to load Sulfo_cog2ar data.";
+          });
+      }
+      function loadArCOGNamesData() {
+        return fetch('arcogs/arCOG_names_220807.txt')
+          .then(response => response.text())
+          .then(text => {
+            text = text.replace(/^\uFEFF/, '');
+            const results = Papa.parse(text, {
+              delimiter: "\t",
+              header: true,
+              skipEmptyLines: true,
+              trim: true,
+              trimHeaders: true
+            });
+            console.log("Detected headers:", results.meta.fields);
+            arCOGNamesData = results.data;
+          })
+          .catch(error => {
+            console.error("Error loading arCOG names data:", error);
+            document.getElementById('arcog_searchMessage').textContent = "Failed to load arCOG names data.";
+          });
+      }
+      function loadDESeq2File(file) {
+        return new Promise((resolve, reject) => {
+          Papa.parse(file, {
+            delimiter: "\t",
+            header: true,
+            skipEmptyLines: true,
+            complete: function (results) {
+              deSeq2Data = results.data;
+              deSeq2Data.fileName = file.name;
+              deSeq2Files = [deSeq2Data];
+              resolve();
+            },
+            error: function (err) {
+              reject(err);
+            }
+          });
+        }).catch(error => {
+          console.error("Error loading DESeq2 file:", error);
+          document.getElementById('arcog_searchMessage').textContent = "Failed to load DESeq2 file.";
+        });
+      }
+      function shortenFilename(filename) {
+        return filename.replace(/deseq-tabs\/DESeq2_/, "").replace(/deseq-tabs\/DESeq2-/, "").replace(/\.tab$/, "");
+      }
+      function preloadTabFiles() {
+        fetch('data/tabFiles.json')
+          .then(response => response.json())
+          .then(fileList => {
+            dataFiles = [];
+            const promises = fileList.map(fileName => {
+              return fetch(fileName)
+                .then(response => response.text())
+                .then(text => {
+                  let delimiter = text.indexOf(",") > -1 ? "," : "\t";
+                  const parsed = Papa.parse(text, { header: true, delimiter: delimiter, dynamicTyping: true });
+                  if (parsed.data.length === 0) return;
+                  let headers = Object.keys(parsed.data[0]);
+                  let geneColumn = headers.find(h => h.toLowerCase() === "gene") || headers[0];
+                  dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn });
+                });
+            });
+            Promise.all(promises)
+              .then(() => {
+                updateGeneList();
+                updateTableList();
+                console.log("All .tab files preloaded successfully!");
+              })
+              .catch(error => {
+                console.error("Error preloading .tab files:", error);
+              });
+          })
+          .catch(error => {
+            console.error("Error fetching tab files list:", error);
+          });
+      }
+      function arcog_populateAutocomplete() {
+        const datalist = document.getElementById('arcog_geneList');
+        if (datalist) { datalist.innerHTML = ""; }
+        globalMapping.forEach(item => {
+          const option = document.createElement('option');
+          option.value = item["Gene (locus_tag)"];
+          if (datalist) { datalist.appendChild(option); }
+        });
+      }
+      function arcog_searchGFF(geneId) {
+        const searchTerm = geneId.trim().toUpperCase();
+        if (!searchTerm) return null;
+        for (const record of gffData) {
+          if (record.locus_tag.toUpperCase().includes(searchTerm) ||
+            record.name.toUpperCase().includes(searchTerm) ||
+            (record.old_locus_tag && record.old_locus_tag.toUpperCase().includes(searchTerm))) {
+            return record.locus_tag;
+          }
+        }
+        return null;
+      }
+      function arcog_getSulfoCode(geneId) {
+        let mapping = arCOGData.find(row => row.gene.toUpperCase() === geneId.toUpperCase());
+        if (!mapping) {
+          mapping = arCOGData.find(row => row.gene.toUpperCase().includes(geneId.toUpperCase()));
+        }
+        return mapping ? mapping.sulfoCode : null;
+      }
+      function arcog_getArCOGCode(sulfoCode) {
+        const mapping = sulfoCogData.find(row => row.sulfoCode === sulfoCode);
+        return mapping ? mapping.arCOGCode : null;
+      }
+      function arcog_getArCOGAnnotation(arCOGCode) {
+        const mapping = arCOGNamesData.find(row => row.arCOG === arCOGCode);
+        return mapping ? mapping : null;
+      }
+      function arcog_buildGlobalMapping() {
+        globalMapping = [];
+        gffData.forEach(gene => {
+          const locus = gene.locus_tag;
+          if (!locus) return;
+          const sulfoCode = arcog_getSulfoCode(locus);
+          if (!sulfoCode) return;
+          const arCOGCode = arcog_getArCOGCode(sulfoCode);
+          if (!arCOGCode) return;
+          const annotation = arcog_getArCOGAnnotation(arCOGCode);
+          let log2FC = "N/A", pval = "N/A";
+          if (deSeq2Files.length > 0) {
+            let deRow = deSeq2Files[0].find(row => row.Gene && (row.Gene.toUpperCase() === locus.toUpperCase() || row.Gene.toUpperCase().includes(locus.toUpperCase())));
+            if (deRow) {
+              log2FC = deRow.log2FoldChange;
+              pval = deRow.pvalue;
+            }
+          }
+          globalMapping.push({
+            "Gene (locus_tag)": locus,
+            "Sulfo Code": sulfoCode,
+            "Mapped arCOG Code": arCOGCode,
+            "Annotation Code": annotation ? annotation.Code : "N/A",
+            "Product": annotation ? annotation.Product : "N/A",
+            "Function": annotation ? annotation.Function : "N/A",
+            "log2(FoldChange)": log2FC,
+            "pvalue": pval
+          });
+        });
+        arcog_populateDropdown();
+        arcog_populateAutocomplete();
+      }
+      function arcog_populateDropdown() {
+        const dropdown = document.getElementById('arcog_annotationDropdown');
+        dropdown.innerHTML = '<option value="ALL">All codes</option>';
+        const uniqueCodes = [...new Set(globalMapping.filter(item => item["Annotation Code"] !== "N/A").map(item => item["Annotation Code"]))];
+        uniqueCodes.sort();
+        uniqueCodes.forEach(code => {
+          const option = document.createElement('option');
+          option.value = code;
+          option.textContent = code;
+          dropdown.appendChild(option);
+        });
+      }
+      function arcog_displayResults(results) {
+        const table = document.getElementById('arcog_resultsTable');
+        const headerRow = document.getElementById('arcog_tableHeader');
+        const tableBody = document.getElementById('arcog_tableBody');
+        headerRow.innerHTML = ""; // Clear existing headers
+        tableBody.innerHTML = "";
+
+        if (results.length === 0) {
+          document.getElementById('arcog_searchMessage').textContent = "No mapping results found.";
+          table.style.display = "none";
+          return;
+        }
+
+        const columns = Object.keys(results[0]);
+        columns.forEach((col, colIndex) => { // Get column index
+          const th = document.createElement('th');
+          th.textContent = col;
+          th.dataset.columnIndex = colIndex; // Store column index
+          th.dataset.columnKey = col;      // Store column key (original key from data)
+
+          const arrowSpan = document.createElement('span');
+          arrowSpan.classList.add('sort-arrow');
+          th.appendChild(arrowSpan);
+
+          th.addEventListener('click', () => arcog_sortTableByColumn(th, results)); // Pass results to sort
+          headerRow.appendChild(th);
+        });
+
+        // Populate table body (existing code)
+        results.forEach(row => {
+          const tr = document.createElement('tr');
+          columns.forEach(col => {
+            const td = document.createElement('td');
+            td.textContent = row[col];
+            tr.appendChild(td);
+          });
+          tableBody.appendChild(tr);
+        });
+
+        table.style.display = "table";
+      }
+      function arcog_filterByAnnotationCode() {
+        const selectedOptions = Array.from(document.getElementById('arcog_annotationDropdown').selectedOptions).map(opt => opt.value);
+        let filtered = [];
+        if (selectedOptions.includes("ALL")) {
+          filtered = globalMapping.filter(item => item["Annotation Code"] !== "N/A");
+        } else {
+          filtered = globalMapping.filter(item => selectedOptions.includes(item["Annotation Code"]));
+        }
+        if (filtered.length === 0) {
+          document.getElementById('arcog_filterMessage').textContent = "No genes found for the selected option.";
+          document.getElementById('arcog_resultsTable').style.display = "none";
+          return;
+        }
+        document.getElementById('arcog_filterMessage').textContent = filtered.length + " gene(s) found.";
+        arcog_displayResults(filtered);
+      }
+      function arcog_exportTable() {
+        const table = document.getElementById('arcog_resultsTable');
+        if (table.style.display === "none") {
+          alert("No table available to export.");
+          return;
+        }
+        let tsv = "";
+        const headers = Array.from(table.querySelectorAll("th")).map(th => th.textContent);
+        tsv += headers.join("\t") + "\n";
+        const rows = table.querySelectorAll("tbody tr");
+        rows.forEach(row => {
+          const cells = Array.from(row.querySelectorAll("td")).map(td => td.textContent);
+          tsv += cells.join("\t") + "\n";
+        });
+        const blob = new Blob([tsv], { type: "text/tab-separated-values;charset=utf-8;" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "arcog_analysis_table.tsv";
+        a.click();
+      }
+
+      function arcog_sortTableByColumn(headerCell, currentData) {
+        const table = document.getElementById('arcog_resultsTable');
+        const tableBody = document.getElementById('arcog_tableBody');
+        const columnIndex = parseInt(headerCell.dataset.columnIndex);
+        const columnKey = headerCell.dataset.columnKey; // Key from the data object
+
+        // Determine sort direction
+        if (arcog_currentSortColumn === headerCell) {
+          arcog_currentSortDirection = arcog_currentSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+          if (arcog_currentSortColumn) {
+            // Reset arrow on previously sorted column
+            const prevArrow = arcog_currentSortColumn.querySelector('.sort-arrow');
+            if (prevArrow) {
+              prevArrow.classList.remove('asc', 'desc');
+            }
+          }
+          arcog_currentSortColumn = headerCell;
+          arcog_currentSortDirection = 'asc';
+        }
+
+        // Update arrow indicator
+        const allArrows = table.querySelectorAll('th .sort-arrow');
+        allArrows.forEach(arrow => arrow.classList.remove('asc', 'desc')); // Clear all arrows
+        const currentArrow = headerCell.querySelector('.sort-arrow');
+        if (currentArrow) {
+          currentArrow.classList.add(arcog_currentSortDirection);
+        }
+
+
+        // Sort the data (use currentData passed from the display function)
+        const sortedData = [...currentData].sort((a, b) => {
+          let valA = a[columnKey];
+          let valB = b[columnKey];
+
+          // Try to convert to number for numerical sort, otherwise string sort
+          const numA = parseFloat(valA);
+          const numB = parseFloat(valB);
+
+          if (!isNaN(numA) && !isNaN(numB)) {
+            valA = numA;
+            valB = numB;
+          } else {
+            // Case-insensitive string comparison
+            valA = String(valA).toUpperCase();
+            valB = String(valB).toUpperCase();
+          }
+
+          if (valA < valB) {
+            return arcog_currentSortDirection === 'asc' ? -1 : 1;
+          }
+          if (valA > valB) {
+            return arcog_currentSortDirection === 'asc' ? 1 : -1;
+          }
+          return 0;
+        });
+
+        // Re-populate the table body with sorted data
+        tableBody.innerHTML = ""; // Clear existing rows
+        const columns = Object.keys(sortedData[0] || {}); // Get columns from sorted data
+        sortedData.forEach(row => {
+          const tr = document.createElement('tr');
+          columns.forEach(colName => {
+            const td = document.createElement('td');
+            td.textContent = row[colName];
+            tr.appendChild(td);
+          });
+          tableBody.appendChild(tr);
+        });
+      }
+
+      function arcog_clearAll() {
+        deSeq2Files = [];
+        deSeq2Data = [];
+        document.getElementById('arcog_deseq2Input').value = "";
+        document.getElementById('arcog_annotationDropdown').selectedIndex = -1;
+        document.getElementById('arcog_resultsTable').style.display = "none";
+        document.getElementById('arcog_searchMessage').textContent = "";
+        document.getElementById('arcog_filterMessage').textContent = "";
+      }
+
+      document.getElementById('arcog_filterBtn').addEventListener('click', arcog_filterByAnnotationCode);
+      document.getElementById('arcog_exportTableBtn').addEventListener('click', arcog_exportTable);
+      document.getElementById('arcog_clearBtn').addEventListener('click', arcog_clearAll);
+      document.getElementById('arcog_deseq2Input').addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (file) {
+          loadDESeq2File(file).then(() => {
+            document.getElementById('arcog_searchMessage').textContent = "DESeq2 data loaded successfully.";
+            arcog_buildGlobalMapping();
+          });
+        }
+      });
+      const viewerTabBtn = document.getElementById('viewerTabBtn');
+      const tablesTabBtn = document.getElementById('tablesTabBtn');
+      const pairsTabBtn = document.getElementById('pairsTabBtn');
+      const genomeViewerTabBtn = document.getElementById('genomeViewerTabBtn');
+      const motifsTabBtn = document.getElementById('motifsTabBtn');
+      const arCOGAnalysisBtn = document.getElementById('arCOGAnalysisBtn');
+      const viewerTab = document.getElementById('viewerTab');
+      const tablesTab = document.getElementById('tablesTab');
+      const pairsTab = document.getElementById('pairsTab');
+      const genomeViewerTab = document.getElementById('genomeViewerTab');
+      const motifsTab = document.getElementById('motifsTab');
+      const arCOGAnalysisTab = document.getElementById('arCOGAnalysisTab');
+      const resourcesTabBtn = document.getElementById('resourcesTabBtn');
+      const resourcesTab = document.getElementById('resourcesTab');
+
+      function clearActiveTabs() {
+        const tabContents = [viewerTab, tablesTab, pairsTab, genomeViewerTab, motifsTab, arCOGAnalysisTab, resourcesTab];
+        const tabButtons = [viewerTabBtn, tablesTabBtn, pairsTabBtn, genomeViewerTabBtn, motifsTabBtn, arCOGAnalysisBtn, resourcesTabBtn];
+
+        tabContents.forEach(tab => {
+          if (tab) { // Check if the element exists
+            tab.classList.remove('active');
+          }
+        });
+
+        tabButtons.forEach(button => {
+          if (button) { // Check if the element exists
+            button.classList.remove('active');
+          }
+        });
+      }
+      viewerTabBtn.addEventListener('click', function () {
+        clearActiveTabs();
+        viewerTab.classList.add('active');
+        viewerTabBtn.classList.add('active');
+      });
+      tablesTabBtn.addEventListener('click', function () {
+        clearActiveTabs();
+        tablesTab.classList.add('active');
+        tablesTabBtn.classList.add('active');
+      });
+      pairsTabBtn.addEventListener('click', function () {
+        clearActiveTabs();
+        pairsTab.classList.add('active');
+        pairsTabBtn.classList.add('active');
+      });
+      genomeViewerTabBtn.addEventListener('click', function () {
+        clearActiveTabs();
+        genomeViewerTab.classList.add('active');
+        genomeViewerTabBtn.classList.add('active');
+        if (!window.igvBrowser) {
+          const igvOptions = {
+            genome: { id: "S. acidocaldarius DSM639", fastaURL: "sequences/Sacidocaldarius-genome.fa" },
+            locus: "NC_007181.1:1-20000",
+            showChromosomeWidget: false,
+            showCenterGuide: false,
+            trackSpacing: 10,
+            tracks: [
+              {
+                name: "Genes (Curated)",
+                url: "gffs/Sacidocaldarius-2024-curated-coding.gff",
+                format: "gff3",
+                color: "#81d4fa",
+                displayMode: "EXPANDED",
+                height: 100,
+                filterTypes: ['CDS', 'rRNA', 'exon', 'RNase_P_RNA', 'tRNA'],
+                searchable: true,
+                searchableFields: ['Name', 'locus_tag', 'old_locus_tag', 'Family']
+              },
+              ,
+              {
+                name: "Mobile Elements",
+                url: "gffs/ISfinder-annotation.gff",
+                format: "gff3",
+                color: "#ff8a65",
+                displayMode: "COLLAPSED",
+                height: 40
+              },
+              {
+                name: "ncRNAs / asRNAs",
+                url: "gffs/nc-as-rnas.gff",
+                format: "gff3",
+                color: "#81d4fa",
+                displayMode: "EXPANDED",
+                height: 80
+              },
+              {
+                name: "smAP1 (Interaction)",
+                url: "gffs/smAP1_sig.gff",
+                format: "gff3",
+                color: "#ffd54f",
+                displayMode: "COLLAPSED",
+                height: 40
+              },
+              {
+                name: "smAP2 (Interaction)",
+                url: "gffs/smAP2_sig.gff",
+                format: "gff3",
+                color: "#ffd54f",
+                displayMode: "COLLAPSED",
+                height: 40
+              },
+              {
+                name: "PS Motif-1",
+                url: "gffs/MEME-1.gff",
+                format: "gff3",
+                color: "#ffb74d",
+                displayMode: "COLLAPSED",
+                height: 40,
+                nameField: "Motif"
+              },
+              {
+                name: "PS Motif-2",
+                url: "gffs/MEME-2.gff",
+                format: "gff3",
+                color: "#ffb74d",
+                displayMode: "COLLAPSED",
+                height: 40,
+                nameField: "Motif"
+              },
+              {
+                name: "PS Motif-3",
+                url: "gffs/MEME-3.gff",
+                format: "gff3",
+                color: "#ffb74d",
+                displayMode: "COLLAPSED",
+                height: 40,
+                nameField: "Motif"
+              },
+              {
+                name: "PS Motif-4",
+                url: "gffs/MEME-4.gff",
+                format: "gff3",
+                color: "#ffb74d",
+                displayMode: "COLLAPSED",
+                height: 40,
+                nameField: "Motif"
+              },
+              {
+                name: "Processing Sites",
+                url: "gffs/sig_ptss.gff",
+                format: "gff3",
+                color: "#ff8a65",
+                displayMode: "COLLAPSED",
+                height: 40
+              }
+            ]
+          };
+          igv.createBrowser(document.getElementById("igvContainer"), igvOptions).then(function (browser) {
+            window.igvBrowser = browser;
+            console.log("IGV browser created");
+          });
+        }
+      });
+      motifsTabBtn.addEventListener('click', function () {
+        clearActiveTabs();
+        motifsTab.classList.add('active');
+        motifsTabBtn.classList.add('active');
+      });
+      arCOGAnalysisBtn.addEventListener('click', function () {
+        clearActiveTabs();
+        arCOGAnalysisTab.classList.add('active');
+        arCOGAnalysisBtn.classList.add('active');
+      });
+      resourcesTabBtn.addEventListener('click', function () {
+        clearActiveTabs();
+        resourcesTab.classList.add('active');
+        resourcesTabBtn.classList.add('active');
+      });
+
+
+      /* -------------------- asRNA/mRNA Pairs Tab: load pairs data -------------------- */
+      function loadPairsFiles() {
+        loadPairsData();
+      }
+
+      function loadPairsData() {
+        const uploadStatusPairs = document.getElementById('uploadStatusPairs');
+        Promise.all([
+          fetch('data/correlation.txt').then(response => response.text()),
+          fetch('data/expression.txt').then(response => response.text())
+        ]).then(([corrText, exprText]) => {
+          Papa.parse(corrText, {
+            header: true, delimiter: "\t", dynamicTyping: true, complete: function (results) {
+              window.correlationDataPairs = results.data.filter(row => row.Gene);
+              checkPairsReady();
+            }
+          });
+          Papa.parse(exprText, {
+            header: true, delimiter: "\t", dynamicTyping: true, complete: function (results) {
+              window.expressionDataPairs = results.data.filter(row => row.Gene);
+              checkPairsReady();
+            }
+          });
+        }).catch(error => {
+          uploadStatusPairs.textContent = "Error loading data: " + error;
+        });
+      }
+
+      function checkPairsReady() {
+        if (window.correlationDataPairs && window.expressionDataPairs) {
+          buildGeneListPairs();
+          setupGeneNavigationPairs();
+          updatePairsDisplayForGene(geneListPairs[0]);
+        }
+      }
+
+      let geneListPairs = [];
+      let currentGeneIndexPairs = 0;
+      function buildGeneListPairs() {
+        const genesFromExpr = window.expressionDataPairs.map(d => d.Gene);
+        const genesFromCorr = window.correlationDataPairs.map(d => d.Gene);
+        const allGenes = [...genesFromExpr, ...genesFromCorr];
+        geneListPairs = Array.from(new Set(allGenes)).sort();
+        const geneSelectPairs = document.getElementById('geneSelectPairs');
+        geneSelectPairs.innerHTML = "";
+        geneListPairs.forEach(gene => {
+          const opt = document.createElement('option');
+          opt.value = gene;
+          opt.textContent = gene;
+          geneSelectPairs.appendChild(opt);
+        });
+        geneSelectPairs.addEventListener('change', function () {
+          currentGeneIndexPairs = geneListPairs.indexOf(this.value);
+          updatePairsDisplayForGene(this.value);
+        });
+      }
+
+      function setupGeneNavigationPairs() {
+        const prevGenePairs = document.getElementById('prevGenePairs');
+        const nextGenePairs = document.getElementById('nextGenePairs');
+        const geneSelectPairs = document.getElementById('geneSelectPairs');
+        prevGenePairs.addEventListener('click', function () {
+          if (currentGeneIndexPairs > 0) {
+            currentGeneIndexPairs--;
+            geneSelectPairs.value = geneListPairs[currentGeneIndexPairs];
+            updatePairsDisplayForGene(geneListPairs[currentGeneIndexPairs]);
+          }
+        });
+        nextGenePairs.addEventListener('click', function () {
+          if (currentGeneIndexPairs < geneListPairs.length - 1) {
+            currentGeneIndexPairs++;
+            geneSelectPairs.value = geneListPairs[currentGeneIndexPairs];
+            updatePairsDisplayForGene(geneListPairs[currentGeneIndexPairs]);
+          }
+        });
+      }
+
+      function updatePairsDisplayForGene(gene) {
+        updatePairsCorrelationTable(gene);
+        updatePairsExpressionChart(gene);
+      }
+
+      function updatePairsCorrelationTable(gene) {
+        const correlationTableBodyPairs = document.getElementById('correlationTableBodyPairs');
+        correlationTableBodyPairs.innerHTML = "";
+        const filtered = window.correlationDataPairs.filter(row => row.Gene === gene);
+        if (filtered.length === 0) {
+          correlationTableBodyPairs.innerHTML = "<tr><td colspan='5'>No correlation data for this gene.</td></tr>";
+          return;
+        }
+        filtered.forEach(item => {
+          const row = document.createElement('tr');
+          const isSignificant = item.Correlation_pvalue <= 0.05;
+          row.innerHTML = `
+            <td>${item.Gene}</td>
+            <td>${item.asRNA}</td>
+            <td>${parseFloat(item.Correlation).toFixed(3)}</td>
+            <td class="${isSignificant ? 'significant' : ''}">${parseFloat(item.Correlation_pvalue).toFixed(3)}</td>
+            <td>${item.Num_experiments}</td>
+          `;
+          correlationTableBodyPairs.appendChild(row);
+        });
+      }
+
+      function updatePairsExpressionChart(gene) {
+        const geneRows = window.expressionDataPairs.filter(row => row.Gene === gene);
+        if (geneRows.length === 0) {
+          if (pairsChart) { pairsChart.destroy(); }
+          return;
+        }
+        let experiments = Array.from(new Set(geneRows.map(row => row.Experiment)));
+        experiments.sort();
+
+        // Build the gene series data with embedded pvalue and fillColor
+        const geneSeriesData = experiments.map(exp => {
+          const row = geneRows.find(r => r.Experiment === exp);
+          if (!row) return null;
+          return {
+            x: exp,
+            y: row.Gene_log2FoldChange,
+            pvalue: row.Gene_pvalue,
+            fillColor: (row.Gene_pvalue !== null && row.Gene_pvalue <= 0.05) ? "#4fc3f7" : "#a9e3f7",
+            label: row.Gene  // Embed gene name
+          };
+        }).filter(Boolean);
+
+        // Build asRNA series by parsing the comma-separated fields:
+        let asRNADataMap = {}; // key: asRNA id, value: array of data points
+        experiments.forEach(exp => {
+          const row = geneRows.find(r => r.Experiment === exp);
+          if (!row) return;
+          // Convert to string before splitting
+          const ids = String(row.asRNA_ids).split(",").map(s => s.trim());
+          const foldChanges = String(row.asRNA_log2FoldChange).split(",").map(s => parseFloat(s.trim()));
+          const pvalues = String(row.asRNA_pvalue).split(",").map(s => parseFloat(s.trim()));
+          ids.forEach((id, idx) => {
+            const dataPoint = {
+              x: exp,
+              y: foldChanges[idx],
+              pvalue: pvalues[idx],
+              fillColor: (pvalues[idx] !== null && pvalues[idx] <= 0.05) ? "#ffb74d" : "#ffd8a5",
+              label: id  // Embed asRNA id
+            };
+            if (!asRNADataMap[id]) {
+              asRNADataMap[id] = [];
+            }
+            asRNADataMap[id].push(dataPoint);
+          });
+        });
+        const asRNA_series = Object.keys(asRNADataMap).map(id => ({
+          name: id, // This is the asRNA id
+          data: asRNADataMap[id]
+        }));
+
+        const series = [{
+          name: 'Gene log2(FoldChange)',
+          data: geneSeriesData
+        }].concat(asRNA_series);
+
+        if (pairsChart) { pairsChart.destroy(); }
+
+        pairsChart = new ApexCharts(document.querySelector("#pairsChartCanvas"), {
+          chart: { type: 'bar', animations: { easing: 'easeOutQuart', speed: 800 } },
+          series: series,
+          xaxis: {
+            categories: experiments,
+            title: { text: 'Condition', style: { fontSize: '16px', color: '#e0e0e0' } },
+            labels: { style: { colors: '#e0e0e0' } },
+            axisBorder: { color: '#555' },
+            axisTicks: { color: '#555' }
+          },
+          yaxis: {
+            title: { text: 'log2(FoldChange)', style: { fontSize: '16px', color: '#e0e0e0' } },
+            labels: { style: { colors: '#e0e0e0' } },
+            axisBorder: { color: '#555' },
+            axisTicks: { color: '#555' }
+          },
+          tooltip: {
+            custom: function ({ series, seriesIndex, dataPointIndex, w }) {
+              const currentData = w.config.series[seriesIndex].data[dataPointIndex];
+              const pvalueFormatted = (currentData.pvalue !== "" && !isNaN(currentData.pvalue))
+                ? Number(currentData.pvalue).toExponential(2)
+                : currentData.pvalue;
+              // For gene series, use the embedded gene name; for asRNA series, use the series name
+              const labelText = (seriesIndex === 0) ? currentData.label : w.config.series[seriesIndex].name;
+              const typeLabel = (seriesIndex === 0) ? "Gene" : "asRNA";
+              return `<div style="padding: 10px; background: white; color: black; border: 1px solid #ccc; border-radius: 4px; font-family: Arial, sans-serif;">
+              <b>${typeLabel}:</b> ${labelText}<br>
+              <b>log2(FoldChange):</b> ${currentData.y}<br>
+              <b>p-value:</b> ${pvalueFormatted}
+            </div>`;
+            }
+          },
+          title: { text: gene, style: { fontSize: '20px', color: '#e0e0e0' } },
+          plotOptions: { bar: { borderRadius: 4, horizontal: false } },
+          dataLabels: { enabled: false },
+          legend: { show: false }
+        });
+        pairsChart.render();
+      }
+      function lightenColor(color, percent) {
+        let num = parseInt(color.slice(1), 16),
+          amt = Math.round(2.55 * percent),
+          R = (num >> 16) + amt,
+          G = (num >> 8 & 0x00FF) + amt,
+          B = (num & 0x0000FF) + amt;
+        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+          (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+          (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+      }
+      function darkenColor(color, percent) {
+        return lightenColor(color, -percent);
+      }
+      function updateGeneList() {
+        const geneSet = new Set();
+        dataFiles.forEach(fileObj => {
+          fileObj.data.forEach(row => {
+            const geneVal = row[fileObj.geneColumn];
+            if (geneVal !== undefined && geneVal !== null && geneVal !== "") {
+              geneSet.add(geneVal);
+            }
+          });
+        });
+        geneArray = Array.from(geneSet).sort();
+        const datalist = document.getElementById('geneList');
+        datalist.innerHTML = "";
+        geneArray.forEach(gene => {
+          const option = document.createElement('option');
+          option.value = gene;
+          datalist.appendChild(option);
+        });
+      }
+      function updateTableList() {
+        const tableListDiv = document.getElementById('tableList');
+        tableListDiv.innerHTML = "";
+        if (dataFiles.length === 0) {
+          tableListDiv.innerHTML = "<p>No files loaded.</p>";
+          return;
+        }
+        const tbl = document.createElement('table');
+        const headerRow = document.createElement('tr');
+        ['Select', 'Filename', 'Actions'].forEach(text => {
+          const th = document.createElement('th');
+          th.textContent = text;
+          headerRow.appendChild(th);
+        });
+        tbl.appendChild(headerRow);
+        dataFiles.forEach(fileObj => {
+          const row = document.createElement('tr');
+          const selectCell = document.createElement('td');
+          const checkbox = document.createElement('input');
+          checkbox.type = "checkbox";
+          checkbox.classList.add("file-select-checkbox");
+          checkbox.dataset.filename = fileObj.filename;
+          checkbox.checked = true;
+          selectCell.appendChild(checkbox);
+          row.appendChild(selectCell);
+          const nameCell = document.createElement('td');
+          nameCell.textContent = fileObj.filename;
+          row.appendChild(nameCell);
+          const actionsCell = document.createElement('td');
+          const viewBtn = document.createElement('button');
+          viewBtn.textContent = "View";
+          viewBtn.style.width = "90px";
+          viewBtn.addEventListener('click', function () { viewTable(fileObj.filename); });
+          const removeBtn = document.createElement('button');
+          removeBtn.textContent = "Remove";
+          removeBtn.style.width = "90px";
+          removeBtn.addEventListener('click', function () { removeFile(fileObj.filename); });
+          actionsCell.appendChild(viewBtn);
+          actionsCell.appendChild(document.createTextNode(" "));
+          actionsCell.appendChild(removeBtn);
+          row.appendChild(actionsCell);
+          tbl.appendChild(row);
+        });
+        tableListDiv.appendChild(tbl);
+      }
+      function removeFile(filename) {
+        const tableDisplayDiv = document.getElementById('tableDisplay');
+        const index = dataFiles.findIndex(f => f.filename === filename);
+        if (index !== -1) {
+          dataFiles.splice(index, 1);
+          updateGeneList();
+          updateTableList();
+          tableDisplayDiv.innerHTML = "";
+          alert(`File "${filename}" removed.`);
+        }
+      }
+      function viewTable(filename) {
+        const tableDisplayDiv = document.getElementById('tableDisplay');
+        const fileObj = dataFiles.find(f => f.filename === filename);
+        if (!fileObj) {
+          tableDisplayDiv.innerHTML = "<p>File not found.</p>";
+          return;
+        }
+        if (!fileObj.data || fileObj.data.length === 0) {
+          tableDisplayDiv.innerHTML = "<p>No data in this file.</p>";
+          return;
+        }
+        const tbl = document.createElement('table');
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const headers = Object.keys(fileObj.data[0]);
+        headers.forEach(header => {
+          const th = document.createElement('th');
+          th.textContent = header;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        tbl.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        fileObj.data.forEach(row => {
+          const tr = document.createElement('tr');
+          headers.forEach(header => {
+            const td = document.createElement('td');
+            td.textContent = row[header];
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        tbl.appendChild(tbody);
+        tableDisplayDiv.innerHTML = "";
+        tableDisplayDiv.appendChild(tbl);
+      }
+      document.getElementById('plotButton').addEventListener('click', function () {
+        const geneName = document.getElementById('geneInput').value.trim();
+        if (!geneName) {
+          alert("Please enter a gene name.");
+          return;
+        }
+        plotGene(geneName);
+      });
+      function plotGene(geneName) {
+        const savedScrollPos = window.pageYOffset;
+        const selectedFiles = dataFiles.filter(fileObj => {
+          const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
+          return checkbox && checkbox.checked;
+        });
+        const seriesData = [];
+        selectedFiles.forEach(fileObj => {
+          const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
+          if (record) {
+            seriesData.push({
+              x: shortenFilename(fileObj.filename),
+              y: record.log2FoldChange,
+              pvalue: record.pvalue,
+              label: geneName
+            });
+          }
+        });
+        if (seriesData.length === 0) {
+          alert("Gene not found in the selected files.");
+          return;
+        }
+        if (chart) { chart.destroy(); }
+        chart = new ApexCharts(document.querySelector("#chartCanvas"), {
+          chart: {
+            type: 'bar',
+            animations: { easing: 'easeOutQuart', speed: 800 },
+            background: 'transparent'
+          },
+          series: [{
+            name: 'Gene log2(FoldChange)',
+            data: seriesData
+          }],
+          xaxis: {
+            type: 'category',
+            title: { text: "Condition", style: { fontSize: '16px', color: '#e0e0e0' } },
+            labels: { style: { colors: '#e0e0e0' } },
+            axisBorder: { color: '#555' },
+            axisTicks: { color: '#555' }
+          },
+          yaxis: {
+            title: { text: "log2(FoldChange)", style: { fontSize: '16px', color: '#e0e0e0' } },
+            labels: { style: { colors: '#e0e0e0' } },
+            axisBorder: { color: '#555' },
+            axisTicks: { color: '#555' }
+          },
+          title: {
+            text: 'Differential Expression for ' + geneName,
+            style: { fontSize: '20px', color: '#e0e0e0' }
+          },
+          plotOptions: { bar: { borderRadius: 4, distributed: true } },
+          colors: seriesData.map(dp => (dp.pvalue !== undefined && dp.pvalue <= 0.05) ? "#4fc3f7" : "#ffb74d"),
+          tooltip: {
+            custom: function ({ series, seriesIndex, dataPointIndex, w }) {
+              const currentData = w.config.series[seriesIndex].data[dataPointIndex];
+              const pvalueFormatted = (currentData.pvalue !== "" && !isNaN(currentData.pvalue))
+                ? Number(currentData.pvalue).toExponential(2)
+                : currentData.pvalue;
+              const labelText = (seriesIndex === 0) ? currentData.label : w.config.series[seriesIndex].name;
+              const typeLabel = (seriesIndex === 0) ? "Gene" : "asRNA";
+              return `<div style="padding: 10px; background: white; color: black; border: 1px solid #ccc; border-radius: 4px; font-family: Arial, sans-serif;">
+                  <b>${typeLabel}:</b> ${labelText}<br>
+                  <b>log2(FoldChange):</b> ${currentData.y}<br>
+                  <b>p-value:</b> ${pvalueFormatted}
+                </div>`;
+            }
+          },
+          dataLabels: { enabled: false },
+          legend: { show: false }
+        });
+        chart.render();
+        window.scrollTo(0, savedScrollPos);
+      }
+      document.getElementById('nextGene').addEventListener('click', function () {
+        let currentGene = document.getElementById('geneInput').value.trim();
+        let currentIndex = geneArray.indexOf(currentGene);
+        if (currentIndex === -1 || currentIndex === geneArray.length - 1) {
+          currentIndex = 0;
+        } else {
+          currentIndex++;
+        }
+        document.getElementById('geneInput').value = geneArray[currentIndex];
+        plotGene(geneArray[currentIndex]);
+      });
+      document.getElementById('prevGene').addEventListener('click', function () {
+        let currentGene = document.getElementById('geneInput').value.trim();
+        let currentIndex = geneArray.indexOf(currentGene);
+        if (currentIndex === -1 || currentIndex === 0) {
+          currentIndex = geneArray.length - 1;
+        } else {
+          currentIndex--;
+        }
+        document.getElementById('geneInput').value = geneArray[currentIndex];
+        plotGene(geneArray[currentIndex]);
+      });
+      /* -------------------- End of Viewer and Pairs Code -------------------- */
+      Promise.all([loadGFFData(), loadArCOGData(), loadSulfoCogData(), loadArCOGNamesData()]).then(() => {
+        arcog_buildGlobalMapping();
+      });
+      preloadTabFiles();
+      loadPairsFiles();
+    });
+
+    async function loadFasta(file, selectId, displayId) {
+      try {
+        const response = await fetch(file);
+        const text = await response.text();
+        const sequences = parseFasta(text);
+        const select = document.getElementById(selectId);
+        for (let header in sequences) {
+          const option = document.createElement('option');
+          option.value = header;
+          option.textContent = header;
+          select.appendChild(option);
+        }
+        if (select.value) {
+          document.getElementById(displayId).textContent = sequences[select.value];
+        }
+        select.addEventListener('change', function () {
+          document.getElementById(displayId).textContent = sequences[this.value];
+        });
+      } catch (error) {
+        console.error('Error loading FASTA file:', file, error);
+      }
+    }
+
+    function parseFasta(text) {
+      const sequences = {};
+      let currentHeader = null;
+      const lines = text.split('\n');
+      lines.forEach(line => {
+        line = line.trim();
+        if (line.startsWith('>')) {
+          currentHeader = line.substring(1).split(/\s+/)[0];
+          sequences[currentHeader] = "";
+        } else if (currentHeader) {
+          sequences[currentHeader] += line;
+        }
+      });
+      return sequences;
+    }
+
+    function extractCoordinates(header) {
+      const match = header.match(/:(\d+-\d+)/);
+      return match ? match[1] : "";
+    }
+
+    function registerCopyButtons(sectionNum) {
+      const select = document.getElementById('fastaSelect' + sectionNum);
+      const pre = document.getElementById('sequenceDisplay' + sectionNum);
+      const copyCoordBtn = document.getElementById('copyCoord' + sectionNum);
+      const copySeqBtn = document.getElementById('copySeq' + sectionNum);
+      copyCoordBtn.addEventListener('click', () => {
+        const header = select.value;
+        const coords = extractCoordinates(header);
+        navigator.clipboard.writeText(coords).then(() => {
+          alert('Coordinates copied: ' + coords);
+        }).catch(err => {
+          console.error('Failed to copy coordinates', err);
+        });
+      });
+      copySeqBtn.addEventListener('click', () => {
+        const sequence = pre.textContent;
+        navigator.clipboard.writeText(sequence).then(() => {
+          alert('Sequence copied.');
+        }).catch(err => {
+          console.error('Failed to copy sequence', err);
+        });
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      loadFasta('sequences/MEME-1.fa', 'fastaSelect1', 'sequenceDisplay1');
+      loadFasta('sequences/MEME-2.fa', 'fastaSelect2', 'sequenceDisplay2');
+      loadFasta('sequences/MEME-3.fa', 'fastaSelect3', 'sequenceDisplay3');
+      loadFasta('sequences/MEME-4.fa', 'fastaSelect4', 'sequenceDisplay4');
+      [1, 2, 3, 4].forEach(num => registerCopyButtons(num));
+
+      /* -------------------- Modal Popup for Legend Table -------------------- */
+      const modal = document.getElementById('modalHelp');
+      const helpBtn = document.getElementById('helpButton');
+      const closeSpan = document.querySelector('.modal .close');
+      const saveBtn = document.getElementById('saveTable');
+      const legendContainer = document.getElementById('legendTableContainer');
+
+      helpBtn.addEventListener('click', function () {
+        modal.style.display = 'block';
+        if (!legendContainer.dataset.loaded) {
+          fetch('arcogs/funclass.tab.txt')
+            .then(response => response.text())
+            .then(text => {
+              text = text.replace(/^\uFEFF/, '');
+              const lines = text.split('\n').filter(line => line.trim() !== "");
+              if (lines.length === 0) {
+                legendContainer.innerHTML = "<p>No data available.</p>";
+                return;
+              }
+              let tableHTML = '<table border="1" cellspacing="0" cellpadding="5" style="width: 100%;">';
+              const headers = lines[0].split('\t');
+              tableHTML += '<thead><tr>';
+              headers.forEach(header => {
+                tableHTML += '<th>' + header.trim() + '</th>';
+              });
+              tableHTML += '</tr></thead>';
+              tableHTML += '<tbody>';
+              for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split('\t');
+                if (cols.length < headers.length) continue;
+                tableHTML += '<tr>';
+                cols.forEach(col => {
+                  tableHTML += '<td>' + col.trim() + '</td>';
+                });
+                tableHTML += '</tr>';
+              }
+              tableHTML += '</tbody></table>';
+              legendContainer.innerHTML = tableHTML;
+              legendContainer.dataset.loaded = true;
+            })
+            .catch(error => {
+              console.error("Error loading legend table:", error);
+              legendContainer.innerHTML = "<p>Error loading legend table.</p>";
+            });
+        }
+      });
+      closeSpan.addEventListener('click', function () {
+        modal.style.display = 'none';
+      });
+      window.addEventListener('click', function (event) {
+        if (event.target === modal) {
+          modal.style.display = 'none';
+        }
+      });
+      function exportTableToCSV(tableHTML, filename) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = tableHTML;
+        const table = tempDiv.querySelector('table');
+        let csv = [];
+        const rows = table.querySelectorAll("tr");
+        rows.forEach(row => {
+          const cols = row.querySelectorAll("th, td");
+          const rowData = [];
+          cols.forEach(col => {
+            rowData.push('"' + col.innerText.replace(/"/g, '""') + '"');
+          });
+          csv.push(rowData.join(","));
+        });
+        const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+        const downloadLink = document.createElement("a");
+        downloadLink.download = filename;
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+        downloadLink.style.display = "none";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+      }
+      saveBtn.addEventListener('click', function () {
+        const tableHTML = legendContainer.innerHTML;
+        exportTableToCSV(tableHTML, "arCOG_functional_classes.csv");
+      });
+    });
+  </script>
+</body>
+
+</html>
