@@ -21,19 +21,20 @@
     }
 
     h1 {
-      font-size: 2.8em;
+      font-size: 3em;
+      font-weight: 700;
       margin-bottom: 0.2em;
     }
 
     h2 {
-      font-size: 1.4em;
-      font-weight: 300;
+      font-size: 1.2em;
+      font-weight: 400;
       margin-bottom: 1.5em;
       color: #aaa;
     }
 
     .summary {
-      max-width: 800px;
+      max-width: 700px;
       margin: 0 auto 2em auto;
       font-size: 1.1em;
       line-height: 1.6;
@@ -47,13 +48,14 @@
       border: none;
       border-radius: 6px;
       cursor: pointer;
-      transition: background-color 0.3s ease;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
       text-decoration: none;
       margin-bottom: 10px;
     }
 
     .enter-button:hover {
       background-color: #005a8c;
+      box-shadow: 0 0 10px #0072B2;
     }
 
     .footer {
@@ -61,6 +63,27 @@
       bottom: 20px;
       font-size: 0.9em;
       color: #888;
+    }
+
+    .paper-link {
+      font-size: 1.1em;
+      font-weight: 500;
+      color: #80bfff;
+      text-decoration: none;
+    }
+
+    .paper-link:hover {
+      color: #ffffff;
+    }
+
+    .github-link {
+      color: #aaa;
+      font-size: 0.9em;
+      text-decoration: none;
+    }
+
+    .github-link:hover {
+      color: #fff;
     }
 
     @media (max-width: 600px) {
@@ -74,16 +97,9 @@
 
       .summary {
         font-size: 1em;
+        padding: 0 10px;
+        text-align: justify;
       }
-    }
-
-    a {
-      color: #80bfff;
-      transition: color 0.3s ease;
-    }
-
-    a:hover {
-      color: #ffffff;
     }
   </style>
 </head>
@@ -91,20 +107,18 @@
 <body>
   <h1><em>Sulfolobus acidocaldarius</em> Transcriptomic Atlas</h1>
   <h2>
-    <a href="https://scholar.google.com/" target="_blank" rel="noopener noreferrer">
-      Brück et al., 2025 · A Multi-Layered Transcriptomic Analysis Sheds Light on Antisense Transcription, RNA Processing, and SmAP Interactions in Sulfolobus acidocaldarius
+    <a class="paper-link" href="https://scholar.google.com/" target="_blank" rel="noopener noreferrer">
+      Brück et al., 2025<br>
     </a>
   </h2>
 
   <div class="summary">
-    This interactive platform integrates dRNA-seq, Term-seq, RIP-seq, and genome annotation data to provide a
-    comprehensive view of post-transcriptional regulation in the thermoacidophilic archaeon <em>S.
-      acidocaldarius</em>. Explore gene expression dynamics, asRNA/mRNA pairs, processing site motifs, and
-    functional arCOG mapping.
+    This interactive platform integrates dRNA-seq, Term-seq, RIP-seq, and genome annotation data to provide a comprehensive view of post-transcriptional regulation in the thermoacidophilic archaeon <em>S.
+      acidocaldarius</em>. Explore gene expression dynamics, asRNA/mRNA pairs, processing site motifs, and functional arCOG mapping.
   </div>
 
   <a class="enter-button" href="atlas.html">Enter the Atlas</a><br>
-  <a href="https://github.com/VicenteBR/Sulfolobus_atlas" target="_blank" rel="noopener noreferrer">
+  <a class="github-link" href="https://github.com/VicenteBR/Sulfolobus_atlas" target="_blank" rel="noopener noreferrer">
     GitHub repository
   </a>
 
@@ -115,7 +129,7 @@
       Prokaryotic RNA Biology Group (AG Lennart Randau)</a><br>
     <a href="mailto:gomesfil@staff.uni-marburg.de">
       gomesfil@staff.uni-marburg.de
-    </a><br>
+    </a><br><br>
     Last updated July 2025
   </div>
 </body>
