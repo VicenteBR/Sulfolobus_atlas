@@ -800,7 +800,8 @@
       <p id="uploadStatusPairs" class="status-message"></p>
       <div class="gene-nav">
         <button id="prevGenePairs">Previous Gene</button>
-        <select id="geneSelectPairs"></select>
+        <input type="text" id="geneInputPairs" list="geneOptionsPairs" placeholder="Enter gene or old locus tag">
+        <datalist id="geneOptionsPairs"></datalist>
         <button id="nextGenePairs">Next Gene</button>
       </div>
       <div id="pairsChartCanvas"></div>
@@ -1027,6 +1028,8 @@
       let geneArray = [];
       let geneLookupMap = new Map();
       let geneOldLocusMap = new Map();
+      let pairsGeneLookupMap = new Map();
+      let pairsGeneOldLocusMap = new Map();
       let arcog_currentSortColumn = null;
       let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
       let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
@@ -1625,8 +1628,39 @@
         if (window.correlationDataPairs && window.expressionDataPairs) {
           buildGeneListPairs();
           setupGeneNavigationPairs();
-          updatePairsDisplayForGene(geneListPairs[0]);
+          if (geneListPairs.length > 0) {
+            updatePairsDisplayForGene(geneListPairs[0]);
+          }
         }
+      }
+
+      function refreshPairsOldLocusMappings() {
+        if (!Array.isArray(geneListPairs) || geneListPairs.length === 0) {
+          return;
+        }
+        const datalist = document.getElementById('geneOptionsPairs');
+        if (!datalist) {
+          return;
+        }
+        const optionMap = new Map();
+        Array.from(datalist.options || []).forEach(option => {
+          optionMap.set(option.value, option);
+        });
+        geneListPairs.forEach(gene => {
+          const oldTag = geneOldLocusMap.get(gene);
+          if (!oldTag) {
+            return;
+          }
+          pairsGeneOldLocusMap.set(gene, oldTag);
+          const normalizedOld = normalizeGeneKey(oldTag);
+          if (!pairsGeneLookupMap.has(normalizedOld)) {
+            pairsGeneLookupMap.set(normalizedOld, gene);
+          }
+          const option = optionMap.get(gene);
+          if (option) {
+            option.label = `${gene} (${oldTag})`;
+          }
+        });
       }
 
       let geneListPairs = [];
@@ -1636,41 +1670,129 @@
         const genesFromCorr = window.correlationDataPairs.map(d => d.Gene);
         const allGenes = [...genesFromExpr, ...genesFromCorr];
         geneListPairs = Array.from(new Set(allGenes)).sort();
-        const geneSelectPairs = document.getElementById('geneSelectPairs');
-        geneSelectPairs.innerHTML = "";
+        pairsGeneLookupMap = new Map();
+        pairsGeneOldLocusMap = new Map();
+        const geneInputPairs = document.getElementById('geneInputPairs');
+        const datalist = document.getElementById('geneOptionsPairs');
+        if (datalist) {
+          datalist.innerHTML = "";
+        }
         geneListPairs.forEach(gene => {
-          const opt = document.createElement('option');
-          opt.value = gene;
-          opt.textContent = gene;
-          geneSelectPairs.appendChild(opt);
+          const normalizedGene = normalizeGeneKey(gene);
+          if (!pairsGeneLookupMap.has(normalizedGene)) {
+            pairsGeneLookupMap.set(normalizedGene, gene);
+          }
+          if (datalist) {
+            const option = document.createElement('option');
+            option.value = gene;
+            datalist.appendChild(option);
+          }
         });
-        geneSelectPairs.addEventListener('change', function () {
-          currentGeneIndexPairs = geneListPairs.indexOf(this.value);
-          updatePairsDisplayForGene(this.value);
-        });
+        refreshPairsOldLocusMappings();
+        if (geneInputPairs && geneListPairs.length > 0) {
+          geneInputPairs.value = geneListPairs[0];
+        }
       }
 
       function setupGeneNavigationPairs() {
         const prevGenePairs = document.getElementById('prevGenePairs');
         const nextGenePairs = document.getElementById('nextGenePairs');
-        const geneSelectPairs = document.getElementById('geneSelectPairs');
-        prevGenePairs.addEventListener('click', function () {
-          if (currentGeneIndexPairs > 0) {
-            currentGeneIndexPairs--;
-            geneSelectPairs.value = geneListPairs[currentGeneIndexPairs];
-            updatePairsDisplayForGene(geneListPairs[currentGeneIndexPairs]);
+        const geneInputPairs = document.getElementById('geneInputPairs');
+        if (prevGenePairs) {
+          prevGenePairs.addEventListener('click', function () {
+            if (currentGeneIndexPairs > 0) {
+              currentGeneIndexPairs--;
+              const gene = geneListPairs[currentGeneIndexPairs];
+              if (geneInputPairs) {
+                geneInputPairs.value = gene;
+              }
+              updatePairsDisplayForGene(gene);
+            }
+          });
+        }
+        if (nextGenePairs) {
+          nextGenePairs.addEventListener('click', function () {
+            if (currentGeneIndexPairs < geneListPairs.length - 1) {
+              currentGeneIndexPairs++;
+              const gene = geneListPairs[currentGeneIndexPairs];
+              if (geneInputPairs) {
+                geneInputPairs.value = gene;
+              }
+              updatePairsDisplayForGene(gene);
+            }
+          });
+        }
+        if (geneInputPairs) {
+          geneInputPairs.addEventListener('change', function () {
+            handlePairsGeneInput(this.value);
+          });
+          geneInputPairs.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              handlePairsGeneInput(this.value);
+            }
+          });
+        }
+      }
+
+      function resolvePairsGeneIdentifier(inputIdentifier) {
+        const normalized = normalizeGeneKey(inputIdentifier);
+        if (!normalized) {
+          return null;
+        }
+        if (pairsGeneLookupMap.has(normalized)) {
+          return pairsGeneLookupMap.get(normalized);
+        }
+        const fallback = geneLookupMap.get(normalized);
+        if (fallback && geneListPairs.includes(fallback)) {
+          pairsGeneLookupMap.set(normalized, fallback);
+          return fallback;
+        }
+        return null;
+      }
+
+      function handlePairsGeneInput(rawValue) {
+        const trimmedValue = rawValue ? rawValue.trim() : "";
+        if (trimmedValue === "") {
+          return;
+        }
+        const resolvedGene = resolvePairsGeneIdentifier(trimmedValue);
+        if (!resolvedGene) {
+          alert("Gene or old locus tag not found in the asRNA/mRNA pairs data.");
+          return;
+        }
+        const index = geneListPairs.indexOf(resolvedGene);
+        if (index === -1) {
+          alert("Gene not available in the asRNA/mRNA pairs data.");
+          return;
+        }
+        currentGeneIndexPairs = index;
+        updatePairsDisplayForGene(resolvedGene);
+      }
+
+      function getPairsOldLocusTag(gene) {
+        if (pairsGeneOldLocusMap.has(gene)) {
+          return pairsGeneOldLocusMap.get(gene);
+        }
+        if (geneOldLocusMap.has(gene)) {
+          const oldTag = geneOldLocusMap.get(gene);
+          if (oldTag) {
+            pairsGeneOldLocusMap.set(gene, oldTag);
           }
-        });
-        nextGenePairs.addEventListener('click', function () {
-          if (currentGeneIndexPairs < geneListPairs.length - 1) {
-            currentGeneIndexPairs++;
-            geneSelectPairs.value = geneListPairs[currentGeneIndexPairs];
-            updatePairsDisplayForGene(geneListPairs[currentGeneIndexPairs]);
-          }
-        });
+          return oldTag || null;
+        }
+        return null;
       }
 
       function updatePairsDisplayForGene(gene) {
+        const index = geneListPairs.indexOf(gene);
+        if (index !== -1) {
+          currentGeneIndexPairs = index;
+        }
+        const geneInputPairs = document.getElementById('geneInputPairs');
+        if (geneInputPairs) {
+          geneInputPairs.value = gene;
+        }
         updatePairsCorrelationTable(gene);
         updatePairsExpressionChart(gene);
       }
@@ -1686,8 +1808,10 @@
         filtered.forEach(item => {
           const row = document.createElement('tr');
           const isSignificant = item.Correlation_pvalue <= 0.05;
+          const oldTag = getPairsOldLocusTag(item.Gene);
+          const geneDisplay = oldTag ? `${item.Gene} (${oldTag})` : item.Gene;
           row.innerHTML = `
-            <td>${item.Gene}</td>
+            <td>${geneDisplay}</td>
             <td>${item.asRNA}</td>
             <td>${parseFloat(item.Correlation).toFixed(3)}</td>
             <td class="${isSignificant ? 'significant' : ''}">${parseFloat(item.Correlation_pvalue).toFixed(3)}</td>
@@ -1705,6 +1829,7 @@
         }
         let experiments = Array.from(new Set(geneRows.map(row => row.Experiment)));
         experiments.sort();
+        const resolvedOldLocusTag = getPairsOldLocusTag(gene);
 
         // Build the gene series data with embedded pvalue and fillColor
         const geneSeriesData = experiments.map(exp => {
@@ -1715,7 +1840,7 @@
             y: row.Gene_log2FoldChange,
             pvalue: row.Gene_pvalue,
             fillColor: (row.Gene_pvalue !== null && row.Gene_pvalue <= 0.05) ? "#4fc3f7" : "#a9e3f7",
-            label: row.Gene  // Embed gene name
+            label: resolvedOldLocusTag ? `${row.Gene} (${resolvedOldLocusTag})` : row.Gene  // Embed gene name
           };
         }).filter(Boolean);
 
@@ -1754,6 +1879,8 @@
 
         if (pairsChart) { pairsChart.destroy(); }
 
+        const titleText = resolvedOldLocusTag ? `${gene} (${resolvedOldLocusTag})` : gene;
+
         pairsChart = new ApexCharts(document.querySelector("#pairsChartCanvas"), {
           chart: { type: 'bar', animations: { easing: 'easeOutQuart', speed: 800 } },
           series: series,
@@ -1786,7 +1913,7 @@
             </div>`;
             }
           },
-          title: { text: gene, style: { fontSize: '20px', color: '#e0e0e0' } },
+          title: { text: titleText, style: { fontSize: '20px', color: '#e0e0e0' } },
           plotOptions: { bar: { borderRadius: 4, horizontal: false } },
           dataLabels: { enabled: false },
           legend: { show: false }
@@ -1851,6 +1978,7 @@
           }
           datalist.appendChild(option);
         });
+        refreshPairsOldLocusMappings();
       }
       function updateTableList() {
         const tableListDiv = document.getElementById('tableList');
