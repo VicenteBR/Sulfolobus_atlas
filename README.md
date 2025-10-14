@@ -2,7 +2,7 @@ Interactive, browser-based atlas of _Sulfolobus acidocaldarius_ post-transcripti
 
 Preprint: Brück et al., 2025 “A Multi-Layered Transcriptomic Analysis Sheds Light on Antisense Transcription, RNA Processing, and SmAP Interactions in _S. acidocaldarius_.”
 
-If you use the atlas, the code, or the underlying datasets in academic work, please cite:
+If you use the atlas, the code, or the underlying datasets, please cite:
 
 Brück, M., et al. (2025). A Multi-Layered Transcriptomic Analysis Sheds Light on Antisense Transcription, RNA Processing, and SmAP Interactions in Sulfolobus acidocaldarius. bioRxiv. doi:10.1101/2025.07.28.667248. bioRxiv
 
