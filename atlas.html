@@ -1025,6 +1025,8 @@
       let pairsChart = null; // asRNA/mRNA pairs chart
       let dataFiles = [];
       let geneArray = [];
+      let geneLookupMap = new Map();
+      let geneOldLocusMap = new Map();
       let arcog_currentSortColumn = null;
       let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
       let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
@@ -1169,7 +1171,8 @@
                   if (parsed.data.length === 0) return;
                   let headers = Object.keys(parsed.data[0]);
                   let geneColumn = headers.find(h => h.toLowerCase() === "gene") || headers[0];
-                  dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn });
+                  let oldLocusColumn = headers.find(h => h && h.toLowerCase().trim() === "old_locus_tag");
+                  dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn, oldLocusColumn: oldLocusColumn });
                 });
             });
             Promise.all(promises)
@@ -1792,11 +1795,47 @@
       }
       function updateGeneList() {
         const geneSet = new Set();
+        geneLookupMap = new Map();
+        geneOldLocusMap = new Map();
         dataFiles.forEach(fileObj => {
           fileObj.data.forEach(row => {
             const geneVal = row[fileObj.geneColumn];
             if (geneVal !== undefined && geneVal !== null && geneVal !== "") {
               geneSet.add(geneVal);
+              const normalizedGene = normalizeGeneKey(geneVal);
+              if (!geneLookupMap.has(normalizedGene)) {
+                geneLookupMap.set(normalizedGene, geneVal);
+              }
+              let oldTag = null;
+              if (fileObj.oldLocusColumn) {
+                const candidate = row[fileObj.oldLocusColumn];
+                if (candidate !== undefined && candidate !== null) {
+                  const trimmed = String(candidate).trim();
+                  if (trimmed !== "") {
+                    oldTag = trimmed;
+                  }
+                }
+              } else {
+                const fallbackKey = Object.keys(row).find(k => k && k.toLowerCase().trim() === "old_locus_tag");
+                if (fallbackKey) {
+                  const candidate = row[fallbackKey];
+                  if (candidate !== undefined && candidate !== null) {
+                    const trimmed = String(candidate).trim();
+                    if (trimmed !== "") {
+                      oldTag = trimmed;
+                    }
+                  }
+                }
+              }
+              if (oldTag) {
+                if (!geneOldLocusMap.has(geneVal)) {
+                  geneOldLocusMap.set(geneVal, oldTag);
+                }
+                const normalizedOld = normalizeGeneKey(oldTag);
+                if (!geneLookupMap.has(normalizedOld)) {
+                  geneLookupMap.set(normalizedOld, geneVal);
+                }
+              }
             }
           });
         });
@@ -1806,6 +1845,10 @@
         geneArray.forEach(gene => {
           const option = document.createElement('option');
           option.value = gene;
+          const oldTag = geneOldLocusMap.get(gene);
+          if (oldTag) {
+            option.label = `${gene} (${oldTag})`;
+          }
           datalist.appendChild(option);
         });
       }
@@ -1901,6 +1944,44 @@
         tableDisplayDiv.innerHTML = "";
         tableDisplayDiv.appendChild(tbl);
       }
+      function normalizeGeneKey(value) {
+        if (value === undefined || value === null) {
+          return "";
+        }
+        return String(value).trim().toUpperCase();
+      }
+
+      function resolveGeneIdentifier(inputIdentifier) {
+        const normalized = normalizeGeneKey(inputIdentifier);
+        if (!normalized) {
+          return null;
+        }
+        return geneLookupMap.get(normalized) || null;
+      }
+
+      function extractOldLocusTag(row, fileObj) {
+        if (!row) {
+          return null;
+        }
+        if (fileObj && fileObj.oldLocusColumn) {
+          const value = row[fileObj.oldLocusColumn];
+          if (value !== undefined && value !== null) {
+            const trimmed = String(value).trim();
+            return trimmed === "" ? null : trimmed;
+          }
+        }
+        const key = Object.keys(row).find(k => k && k.toLowerCase().trim() === "old_locus_tag");
+        if (!key) {
+          return null;
+        }
+        const value = row[key];
+        if (value === undefined || value === null) {
+          return null;
+        }
+        const trimmed = String(value).trim();
+        return trimmed === "" ? null : trimmed;
+      }
+
       document.getElementById('plotButton').addEventListener('click', function () {
         const geneName = document.getElementById('geneInput').value.trim();
         if (!geneName) {
@@ -1909,7 +1990,16 @@
         }
         plotGene(geneName);
       });
-      function plotGene(geneName) {
+      function plotGene(geneIdentifier) {
+        const resolvedGene = resolveGeneIdentifier(geneIdentifier);
+        if (!resolvedGene) {
+          alert("Gene or old locus tag not found in the loaded tables.");
+          return;
+        }
+        const geneInputField = document.getElementById('geneInput');
+        geneInputField.value = resolvedGene;
+        const normalizedGene = normalizeGeneKey(resolvedGene);
+        let resolvedOldLocusTag = geneOldLocusMap.get(resolvedGene) || null;
         const savedScrollPos = window.pageYOffset;
         const selectedFiles = dataFiles.filter(fileObj => {
           const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
@@ -1917,13 +2007,22 @@
         });
         const seriesData = [];
         selectedFiles.forEach(fileObj => {
-          const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
+          const record = fileObj.data.find(row => normalizeGeneKey(row[fileObj.geneColumn]) === normalizedGene);
           if (record) {
+            if (!resolvedOldLocusTag) {
+              const rowOldTag = extractOldLocusTag(record, fileObj);
+              if (rowOldTag) {
+                resolvedOldLocusTag = rowOldTag;
+                if (!geneOldLocusMap.has(resolvedGene)) {
+                  geneOldLocusMap.set(resolvedGene, rowOldTag);
+                }
+              }
+            }
             seriesData.push({
               x: shortenFilename(fileObj.filename),
               y: record.log2FoldChange,
               pvalue: record.pvalue,
-              label: geneName
+              label: resolvedGene
             });
           }
         });
@@ -1932,6 +2031,7 @@
           return;
         }
         if (chart) { chart.destroy(); }
+        const titleText = resolvedOldLocusTag ? `Differential Expression for ${resolvedGene} (${resolvedOldLocusTag})` : `Differential Expression for ${resolvedGene}`;
         chart = new ApexCharts(document.querySelector("#chartCanvas"), {
           chart: {
             type: 'bar',
@@ -1956,7 +2056,7 @@
             axisTicks: { color: '#555' }
           },
           title: {
-            text: 'Differential Expression for ' + geneName,
+            text: titleText,
             style: { fontSize: '20px', color: '#e0e0e0' }
           },
           plotOptions: { bar: { borderRadius: 4, distributed: true } },
