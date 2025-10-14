@@ -800,8 +800,7 @@
       <p id="uploadStatusPairs" class="status-message"></p>
       <div class="gene-nav">
         <button id="prevGenePairs">Previous Gene</button>
-        <input type="text" id="geneInputPairs" list="genePairsList" placeholder="Select gene">
-        <datalist id="genePairsList"></datalist>
+        <select id="geneSelectPairs"></select>
         <button id="nextGenePairs">Next Gene</button>
       </div>
       <div id="pairsChartCanvas"></div>
@@ -1026,11 +1025,6 @@
       let pairsChart = null; // asRNA/mRNA pairs chart
       let dataFiles = [];
       let geneArray = [];
-      let geneArraySet = new Set();
-      const geneAliasMap = new Map();
-      let geneListPairs = [];
-      let geneListPairsSet = new Set();
-      let pairsNavigationInitialized = false;
       let arcog_currentSortColumn = null;
       let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
       let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
@@ -1170,20 +1164,18 @@
               return fetch(fileName)
                 .then(response => response.text())
                 .then(text => {
-                  const delimiter = text.indexOf(",") > -1 ? "," : "\t";
-                  const parsed = Papa.parse(text, { header: true, delimiter: delimiter, dynamicTyping: true, skipEmptyLines: true });
-                  if (!parsed.data || parsed.data.length === 0) { return; }
-                  const headers = Object.keys(parsed.data[0] || {});
-                  const geneColumn = headers.find(h => h && h.toLowerCase() === "gene") || headers[0];
-                  const oldLocusColumn = headers.find(h => h && h.toLowerCase() === "old_locus_tag");
-                  dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn, oldLocusColumn: oldLocusColumn });
+                  let delimiter = text.indexOf(",") > -1 ? "," : "\t";
+                  const parsed = Papa.parse(text, { header: true, delimiter: delimiter, dynamicTyping: true });
+                  if (parsed.data.length === 0) return;
+                  let headers = Object.keys(parsed.data[0]);
+                  let geneColumn = headers.find(h => h.toLowerCase() === "gene") || headers[0];
+                  dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn });
                 });
             });
             Promise.all(promises)
               .then(() => {
                 updateGeneList();
                 updateTableList();
-                rebuildGeneAliasMap();
                 console.log("All .tab files preloaded successfully!");
               })
               .catch(error => {
@@ -1630,86 +1622,54 @@
         if (window.correlationDataPairs && window.expressionDataPairs) {
           buildGeneListPairs();
           setupGeneNavigationPairs();
-          const geneInputPairs = document.getElementById('geneInputPairs');
-          const initialGene = geneListPairs[0];
-          if (initialGene) {
-            if (geneInputPairs) {
-              geneInputPairs.value = initialGene;
-            }
-            updatePairsDisplayForGene(initialGene);
-          }
-          rebuildGeneAliasMap();
+          updatePairsDisplayForGene(geneListPairs[0]);
         }
       }
 
+      let geneListPairs = [];
       let currentGeneIndexPairs = 0;
       function buildGeneListPairs() {
-        const genesFromExpr = window.expressionDataPairs.map(d => d.Gene).filter(Boolean);
-        const genesFromCorr = window.correlationDataPairs.map(d => d.Gene).filter(Boolean);
+        const genesFromExpr = window.expressionDataPairs.map(d => d.Gene);
+        const genesFromCorr = window.correlationDataPairs.map(d => d.Gene);
         const allGenes = [...genesFromExpr, ...genesFromCorr];
         geneListPairs = Array.from(new Set(allGenes)).sort();
-        geneListPairsSet = new Set(geneListPairs.map(gene => gene.toUpperCase()));
-        currentGeneIndexPairs = 0;
+        const geneSelectPairs = document.getElementById('geneSelectPairs');
+        geneSelectPairs.innerHTML = "";
+        geneListPairs.forEach(gene => {
+          const opt = document.createElement('option');
+          opt.value = gene;
+          opt.textContent = gene;
+          geneSelectPairs.appendChild(opt);
+        });
+        geneSelectPairs.addEventListener('change', function () {
+          currentGeneIndexPairs = geneListPairs.indexOf(this.value);
+          updatePairsDisplayForGene(this.value);
+        });
       }
 
       function setupGeneNavigationPairs() {
-        if (pairsNavigationInitialized) { return; }
         const prevGenePairs = document.getElementById('prevGenePairs');
         const nextGenePairs = document.getElementById('nextGenePairs');
-        const geneInputPairs = document.getElementById('geneInputPairs');
-        if (!prevGenePairs || !nextGenePairs || !geneInputPairs) { return; }
-
-        geneInputPairs.addEventListener('focus', function () {
-          geneInputPairs.select();
-        });
-
-        const selectGeneByIndex = (index) => {
-          if (geneListPairs.length === 0) { return; }
-          const boundedIndex = (index + geneListPairs.length) % geneListPairs.length;
-          currentGeneIndexPairs = boundedIndex;
-          const selectedGene = geneListPairs[boundedIndex];
-          geneInputPairs.value = selectedGene;
-          updatePairsDisplayForGene(selectedGene);
-        };
-
+        const geneSelectPairs = document.getElementById('geneSelectPairs');
         prevGenePairs.addEventListener('click', function () {
-          if (geneListPairs.length === 0) { return; }
-          selectGeneByIndex(currentGeneIndexPairs - 1);
+          if (currentGeneIndexPairs > 0) {
+            currentGeneIndexPairs--;
+            geneSelectPairs.value = geneListPairs[currentGeneIndexPairs];
+            updatePairsDisplayForGene(geneListPairs[currentGeneIndexPairs]);
+          }
         });
-
         nextGenePairs.addEventListener('click', function () {
-          if (geneListPairs.length === 0) { return; }
-          selectGeneByIndex(currentGeneIndexPairs + 1);
-        });
-
-        const handleGeneInputSelection = () => {
-          const rawValue = geneInputPairs.value.trim();
-          if (!rawValue) { return; }
-          const resolved = resolveGeneAlias(rawValue);
-          if (!resolved || !geneListPairsSet.has(resolved.toUpperCase())) {
-            alert('Gene not found in the asRNA/mRNA dataset.');
-            return;
-          }
-          currentGeneIndexPairs = geneListPairs.indexOf(resolved);
-          geneInputPairs.value = resolved;
-          updatePairsDisplayForGene(resolved);
-        };
-
-        geneInputPairs.addEventListener('change', handleGeneInputSelection);
-        geneInputPairs.addEventListener('keydown', function (event) {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            handleGeneInputSelection();
+          if (currentGeneIndexPairs < geneListPairs.length - 1) {
+            currentGeneIndexPairs++;
+            geneSelectPairs.value = geneListPairs[currentGeneIndexPairs];
+            updatePairsDisplayForGene(geneListPairs[currentGeneIndexPairs]);
           }
         });
-
-        pairsNavigationInitialized = true;
       }
 
       function updatePairsDisplayForGene(gene) {
-        const canonicalGene = resolveGeneAlias(gene) || gene;
-        updatePairsCorrelationTable(canonicalGene);
-        updatePairsExpressionChart(canonicalGene);
+        updatePairsCorrelationTable(gene);
+        updatePairsExpressionChart(gene);
       }
 
       function updatePairsCorrelationTable(gene) {
@@ -1841,7 +1801,13 @@
           });
         });
         geneArray = Array.from(geneSet).sort();
-        geneArraySet = new Set(geneArray.map(gene => gene.toUpperCase()));
+        const datalist = document.getElementById('geneList');
+        datalist.innerHTML = "";
+        geneArray.forEach(gene => {
+          const option = document.createElement('option');
+          option.value = gene;
+          datalist.appendChild(option);
+        });
       }
       function updateTableList() {
         const tableListDiv = document.getElementById('tableList');
@@ -1895,7 +1861,6 @@
           dataFiles.splice(index, 1);
           updateGeneList();
           updateTableList();
-          rebuildGeneAliasMap();
           tableDisplayDiv.innerHTML = "";
           alert(`File "${filename}" removed.`);
         }
@@ -1937,22 +1902,14 @@
         tableDisplayDiv.appendChild(tbl);
       }
       document.getElementById('plotButton').addEventListener('click', function () {
-        const geneInput = document.getElementById('geneInput');
-        const rawGeneName = geneInput.value.trim();
-        if (!rawGeneName) {
+        const geneName = document.getElementById('geneInput').value.trim();
+        if (!geneName) {
           alert("Please enter a gene name.");
           return;
         }
-        const resolvedGene = resolveGeneAlias(rawGeneName);
-        if (!resolvedGene) {
-          alert("Gene not found in the loaded tables.");
-          return;
-        }
-        geneInput.value = resolvedGene;
-        plotGene(resolvedGene);
+        plotGene(geneName);
       });
       function plotGene(geneName) {
-        const canonicalGene = resolveGeneAlias(geneName) || geneName;
         const savedScrollPos = window.pageYOffset;
         const selectedFiles = dataFiles.filter(fileObj => {
           const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
@@ -1960,26 +1917,13 @@
         });
         const seriesData = [];
         selectedFiles.forEach(fileObj => {
-          const record = fileObj.data.find(row => {
-            if (!row) { return false; }
-            const geneVal = row[fileObj.geneColumn];
-            if (geneVal !== undefined && geneVal !== null && String(geneVal).trim() === canonicalGene) {
-              return true;
-            }
-            if (fileObj.oldLocusColumn) {
-              const oldVal = row[fileObj.oldLocusColumn];
-              if (oldVal !== undefined && oldVal !== null && String(oldVal).trim() === canonicalGene) {
-                return true;
-              }
-            }
-            return false;
-          });
+          const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
           if (record) {
             seriesData.push({
               x: shortenFilename(fileObj.filename),
               y: record.log2FoldChange,
               pvalue: record.pvalue,
-              label: canonicalGene
+              label: geneName
             });
           }
         });
@@ -2012,7 +1956,7 @@
             axisTicks: { color: '#555' }
           },
           title: {
-            text: 'Differential Expression for ' + canonicalGene,
+            text: 'Differential Expression for ' + geneName,
             style: { fontSize: '20px', color: '#e0e0e0' }
           },
           plotOptions: { bar: { borderRadius: 4, distributed: true } },
@@ -2040,10 +1984,6 @@
       }
       document.getElementById('nextGene').addEventListener('click', function () {
         let currentGene = document.getElementById('geneInput').value.trim();
-        const resolved = resolveGeneAlias(currentGene);
-        if (resolved) {
-          currentGene = resolved;
-        }
         let currentIndex = geneArray.indexOf(currentGene);
         if (currentIndex === -1 || currentIndex === geneArray.length - 1) {
           currentIndex = 0;
@@ -2055,10 +1995,6 @@
       });
       document.getElementById('prevGene').addEventListener('click', function () {
         let currentGene = document.getElementById('geneInput').value.trim();
-        const resolved = resolveGeneAlias(currentGene);
-        if (resolved) {
-          currentGene = resolved;
-        }
         let currentIndex = geneArray.indexOf(currentGene);
         if (currentIndex === -1 || currentIndex === 0) {
           currentIndex = geneArray.length - 1;
