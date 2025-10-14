@@ -800,7 +800,8 @@
       <p id="uploadStatusPairs" class="status-message"></p>
       <div class="gene-nav">
         <button id="prevGenePairs">Previous Gene</button>
-        <select id="geneSelectPairs"></select>
+        <input type="text" id="geneInputPairs" list="genePairsList" placeholder="Select gene">
+        <datalist id="genePairsList"></datalist>
         <button id="nextGenePairs">Next Gene</button>
       </div>
       <div id="pairsChartCanvas"></div>
@@ -1025,6 +1026,11 @@
       let pairsChart = null; // asRNA/mRNA pairs chart
       let dataFiles = [];
       let geneArray = [];
+      let geneArraySet = new Set();
+      const geneAliasMap = new Map();
+      let geneListPairs = [];
+      let geneListPairsSet = new Set();
+      let pairsNavigationInitialized = false;
       let arcog_currentSortColumn = null;
       let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
       let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
@@ -1064,17 +1070,19 @@
       document.getElementById("geneInput").addEventListener("click", function () {
         this.select();
       });
+
+      function setTableCheckboxes(isChecked) {
+        document.querySelectorAll('#tableList input[type="checkbox"]').forEach(checkbox => {
+          checkbox.checked = isChecked;
+        });
+      }
+
       document.querySelectorAll('.select-all-checkboxes').forEach(button => {
-        button.addEventListener('click', function () {
-          const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
-          checkboxes.forEach(checkbox => checkbox.checked = true);
-        });
+        button.addEventListener('click', () => setTableCheckboxes(true));
       });
+
       document.querySelectorAll('.clear-all-checkboxes').forEach(button => {
-        button.addEventListener('click', function () {
-          const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
-          checkboxes.forEach(checkbox => checkbox.checked = false);
-        });
+        button.addEventListener('click', () => setTableCheckboxes(false));
       });
       document.getElementById('toTopButton').addEventListener('click', function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1153,6 +1161,28 @@
       function shortenFilename(filename) {
         return filename.replace(/deseq-tabs\/DESeq2_/, "").replace(/deseq-tabs\/DESeq2-/, "").replace(/\.tab$/, "");
       }
+      function findColumnKeyInRows(rows, targetName) {
+        if (!Array.isArray(rows)) { return null; }
+        for (const row of rows) {
+          if (!row) { continue; }
+          const key = detectColumnKey(row, targetName);
+          if (key) { return key; }
+        }
+        return null;
+      }
+
+      function extractField(row, preferredKey, targetName) {
+        if (!row) { return undefined; }
+        if (preferredKey && Object.prototype.hasOwnProperty.call(row, preferredKey)) {
+          return row[preferredKey];
+        }
+        const detectedKey = detectColumnKey(row, targetName);
+        if (detectedKey && Object.prototype.hasOwnProperty.call(row, detectedKey)) {
+          return row[detectedKey];
+        }
+        return undefined;
+      }
+
       function preloadTabFiles() {
         fetch('data/tabFiles.json')
           .then(response => response.json())
@@ -1162,18 +1192,20 @@
               return fetch(fileName)
                 .then(response => response.text())
                 .then(text => {
-                  let delimiter = text.indexOf(",") > -1 ? "," : "\t";
-                  const parsed = Papa.parse(text, { header: true, delimiter: delimiter, dynamicTyping: true });
-                  if (parsed.data.length === 0) return;
-                  let headers = Object.keys(parsed.data[0]);
-                  let geneColumn = headers.find(h => h.toLowerCase() === "gene") || headers[0];
-                  dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn });
+                  const delimiter = text.indexOf(",") > -1 ? "," : "\t";
+                  const parsed = Papa.parse(text, { header: true, delimiter: delimiter, dynamicTyping: true, skipEmptyLines: true });
+                  if (!parsed.data || parsed.data.length === 0) { return; }
+                  const geneColumn = findColumnKeyInRows(parsed.data, 'gene');
+                  const oldLocusColumn = findColumnKeyInRows(parsed.data, 'old_locus_tag');
+                  const fallbackGeneKey = geneColumn || Object.keys(parsed.data[0] || {})[0];
+                  dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: fallbackGeneKey, oldLocusColumn: oldLocusColumn });
                 });
             });
             Promise.all(promises)
               .then(() => {
                 updateGeneList();
                 updateTableList();
+                rebuildGeneAliasMap();
                 console.log("All .tab files preloaded successfully!");
               })
               .catch(error => {
@@ -1435,190 +1467,164 @@
           });
         }
       });
-      const viewerTabBtn = document.getElementById('viewerTabBtn');
-      const tablesTabBtn = document.getElementById('tablesTabBtn');
-      const pairsTabBtn = document.getElementById('pairsTabBtn');
-      const genomeViewerTabBtn = document.getElementById('genomeViewerTabBtn');
-      const motifsTabBtn = document.getElementById('motifsTabBtn');
-      const arCOGAnalysisBtn = document.getElementById('arCOGAnalysisBtn');
-      const viewerTab = document.getElementById('viewerTab');
-      const tablesTab = document.getElementById('tablesTab');
-      const pairsTab = document.getElementById('pairsTab');
-      const genomeViewerTab = document.getElementById('genomeViewerTab');
-      const motifsTab = document.getElementById('motifsTab');
-      const arCOGAnalysisTab = document.getElementById('arCOGAnalysisTab');
-      const resourcesTabBtn = document.getElementById('resourcesTabBtn');
-      const resourcesTab = document.getElementById('resourcesTab');
+      function ensureIgvBrowser() {
+        if (window.igvBrowser) {
+          return;
+        }
 
-      function clearActiveTabs() {
-        const tabContents = [viewerTab, tablesTab, pairsTab, genomeViewerTab, motifsTab, arCOGAnalysisTab, resourcesTab];
-        const tabButtons = [viewerTabBtn, tablesTabBtn, pairsTabBtn, genomeViewerTabBtn, motifsTabBtn, arCOGAnalysisBtn, resourcesTabBtn];
+        const igvOptions = {
+          genome: { id: "S. acidocaldarius DSM639", fastaURL: "sequences/Sacidocaldarius-genome.fa" },
+          locus: "NC_007181.1:1-20000",
+          showChromosomeWidget: false,
+          showCenterGuide: false,
+          trackSpacing: 10,
+          tracks: [
+            {
+              name: "Genes (Curated)",
+              url: "gffs/Sacidocaldarius-2024-curated-coding.gff",
+              format: "gff3",
+              color: "#81d4fa",
+              displayMode: "EXPANDED",
+              height: 100,
+              filterTypes: ['CDS', 'rRNA', 'exon', 'RNase_P_RNA', 'tRNA'],
+              searchable: true,
+              searchableFields: ['Name', 'locus_tag', 'old_locus_tag', 'Family']
+            },
+            {
+              name: "Mobile Elements",
+              url: "gffs/ISfinder-annotation.gff",
+              format: "gff3",
+              color: "#ff8a65",
+              displayMode: "COLLAPSED",
+              height: 40
+            },
+            {
+              name: "ncRNAs / asRNAs",
+              url: "gffs/nc-as-rnas.gff",
+              format: "gff3",
+              color: "purple",
+              displayMode: "EXPANDED",
+              height: 80
+            },
+            {
+              name: "smAP1 (Interaction)",
+              url: "gffs/smAP1_sig.gff",
+              format: "gff3",
+              color: "brown",
+              displayMode: "EXPANDED",
+              height: 50
+            },
+            {
+              name: "smAP2 (Interaction)",
+              url: "gffs/smAP2_sig.gff",
+              format: "gff3",
+              color: "orange",
+              displayMode: "EXPANDED",
+              height: 50
+            },
+            {
+              name: "L7Ae (Interaction)",
+              url: "gffs/L7Ae_sig.gff",
+              format: "gff3",
+              color: "black",
+              displayMode: "EXPANDED",
+              height: 50
+            },
+            {
+              name: "PS Motif-1",
+              url: "gffs/MEME-1.gff",
+              format: "gff3",
+              color: "darkblue",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "PS Motif-2",
+              url: "gffs/MEME-2.gff",
+              format: "gff3",
+              color: "darkblue",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "PS Motif-3",
+              url: "gffs/MEME-3.gff",
+              format: "gff3",
+              color: "darkblue",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "PS Motif-4",
+              url: "gffs/MEME-4.gff",
+              format: "gff3",
+              color: "darkblue",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "Processing Sites",
+              url: "gffs/sig_ptss.gff",
+              format: "gff3",
+              color: "#ff8a65",
+              displayMode: "COLLAPSED",
+              height: 40
+            }
+          ]
+        };
 
-        tabContents.forEach(tab => {
-          if (tab) { // Check if the element exists
-            tab.classList.remove('active');
-          }
-        });
-
-        tabButtons.forEach(button => {
-          if (button) { // Check if the element exists
-            button.classList.remove('active');
-          }
+        igv.createBrowser(document.getElementById("igvContainer"), igvOptions).then(browser => {
+          window.igvBrowser = browser;
+          console.log("IGV browser created");
         });
       }
-      viewerTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        viewerTab.classList.add('active');
-        viewerTabBtn.classList.add('active');
-      });
-      tablesTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        tablesTab.classList.add('active');
-        tablesTabBtn.classList.add('active');
-      });
-      pairsTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        pairsTab.classList.add('active');
-        pairsTabBtn.classList.add('active');
-      });
-      genomeViewerTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        genomeViewerTab.classList.add('active');
-        genomeViewerTabBtn.classList.add('active');
-        if (!window.igvBrowser) {
-          const igvOptions = {
-            genome: { id: "S. acidocaldarius DSM639", fastaURL: "sequences/Sacidocaldarius-genome.fa" },
-            locus: "NC_007181.1:1-20000",
-            showChromosomeWidget: false,
-            showCenterGuide: false,
-            trackSpacing: 10,
-            tracks: [
-              {
-                name: "Genes (Curated)",
-                url: "gffs/Sacidocaldarius-2024-curated-coding.gff",
-                format: "gff3",
-                color: "#81d4fa",
-                displayMode: "EXPANDED",
-                height: 100,
-                filterTypes: ['CDS', 'rRNA', 'exon', 'RNase_P_RNA', 'tRNA'],
-                searchable: true,
-                searchableFields: ['Name', 'locus_tag', 'old_locus_tag', 'Family']
-              },
-              ,
-              {
-                name: "Mobile Elements",
-                url: "gffs/ISfinder-annotation.gff",
-                format: "gff3",
-                color: "#ff8a65",
-                displayMode: "COLLAPSED",
-                height: 40
-              },
-              {
-                name: "ncRNAs / asRNAs",
-                url: "gffs/nc-as-rnas.gff",
-                format: "gff3",
-                color: "purple",
-                displayMode: "EXPANDED",
-                height: 80
-              },
-              {
-                name: "smAP1 (Interaction)",
-                url: "gffs/smAP1_sig.gff",
-                format: "gff3",
-                color: "brown",
-                displayMode: "EXPANDED",
-                height: 50
-              },
-              {
-                name: "smAP2 (Interaction)",
-                url: "gffs/smAP2_sig.gff",
-                format: "gff3",
-                color: "orange",
-                displayMode: "EXPANDED",
-                height: 50
-              },
-              {
-                name: "L7Ae (Interaction)",
-                url: "gffs/L7Ae_sig.gff",
-                format: "gff3",
-                color: "black",
-                displayMode: "EXPANDED",
-                height: 50
-              },
-              {
-                name: "PS Motif-1",
-                url: "gffs/MEME-1.gff",
-                format: "gff3",
-                color: "darkblue",
-                displayMode: "COLLAPSED",
-                height: 40,
-                nameField: "Motif"
-              },
-              {
-                name: "PS Motif-2",
-                url: "gffs/MEME-2.gff",
-                format: "gff3",
-                color: "darkblue",
-                displayMode: "COLLAPSED",
-                height: 40,
-                nameField: "Motif"
-              },
-              {
-                name: "PS Motif-3",
-                url: "gffs/MEME-3.gff",
-                format: "gff3",
-                color: "darkblue",
-                displayMode: "COLLAPSED",
-                height: 40,
-                nameField: "Motif"
-              },
-              {
-                name: "PS Motif-4",
-                url: "gffs/MEME-4.gff",
-                format: "gff3",
-                color: "darkblue",
-                displayMode: "COLLAPSED",
-                height: 40,
-                nameField: "Motif"
-              },
-              {
-                name: "Processing Sites",
-                url: "gffs/sig_ptss.gff",
-                format: "gff3",
-                color: "#ff8a65",
-                displayMode: "COLLAPSED",
-                height: 40
-              }
-            ]
-          };
-          igv.createBrowser(document.getElementById("igvContainer"), igvOptions).then(function (browser) {
-            window.igvBrowser = browser;
-            console.log("IGV browser created");
-          });
+
+      const tabConfigs = [
+        { buttonId: 'viewerTabBtn', contentId: 'viewerTab' },
+        { buttonId: 'tablesTabBtn', contentId: 'tablesTab' },
+        { buttonId: 'pairsTabBtn', contentId: 'pairsTab' },
+        { buttonId: 'genomeViewerTabBtn', contentId: 'genomeViewerTab', onShow: ensureIgvBrowser },
+        { buttonId: 'motifsTabBtn', contentId: 'motifsTab' },
+        { buttonId: 'arCOGAnalysisBtn', contentId: 'arCOGAnalysisTab' },
+        { buttonId: 'resourcesTabBtn', contentId: 'resourcesTab' }
+      ].map(config => ({
+        ...config,
+        button: document.getElementById(config.buttonId),
+        content: document.getElementById(config.contentId)
+      })).filter(config => config.button && config.content);
+
+      let activeTabConfig = null;
+
+      function activateTab(config) {
+        if (activeTabConfig) {
+          activeTabConfig.button.classList.remove('active');
+          activeTabConfig.content.classList.remove('active');
         }
+
+        config.button.classList.add('active');
+        config.content.classList.add('active');
+        activeTabConfig = config;
+
+        if (typeof config.onShow === 'function') {
+          config.onShow();
+        }
+      }
+
+      tabConfigs.forEach(config => {
+        config.button.addEventListener('click', () => activateTab(config));
       });
-      motifsTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        motifsTab.classList.add('active');
-        motifsTabBtn.classList.add('active');
-      });
-      arCOGAnalysisBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        arCOGAnalysisTab.classList.add('active');
-        arCOGAnalysisBtn.classList.add('active');
-      });
-      resourcesTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        resourcesTab.classList.add('active');
-        resourcesTabBtn.classList.add('active');
-      });
+
+      const initialTab = tabConfigs.find(config => config.buttonId === 'viewerTabBtn') || tabConfigs[0];
+      if (initialTab) {
+        activateTab(initialTab);
+      }
 
 
       /* -------------------- asRNA/mRNA Pairs Tab: load pairs data -------------------- */
-      function loadPairsFiles() {
-        loadPairsData();
-      }
-
       function loadPairsData() {
         const uploadStatusPairs = document.getElementById('uploadStatusPairs');
         Promise.all([
@@ -1646,54 +1652,86 @@
         if (window.correlationDataPairs && window.expressionDataPairs) {
           buildGeneListPairs();
           setupGeneNavigationPairs();
-          updatePairsDisplayForGene(geneListPairs[0]);
+          const geneInputPairs = document.getElementById('geneInputPairs');
+          const initialGene = geneListPairs[0];
+          if (initialGene) {
+            if (geneInputPairs) {
+              geneInputPairs.value = initialGene;
+            }
+            updatePairsDisplayForGene(initialGene);
+          }
+          rebuildGeneAliasMap();
         }
       }
 
-      let geneListPairs = [];
       let currentGeneIndexPairs = 0;
       function buildGeneListPairs() {
-        const genesFromExpr = window.expressionDataPairs.map(d => d.Gene);
-        const genesFromCorr = window.correlationDataPairs.map(d => d.Gene);
+        const genesFromExpr = window.expressionDataPairs.map(d => d.Gene).filter(Boolean);
+        const genesFromCorr = window.correlationDataPairs.map(d => d.Gene).filter(Boolean);
         const allGenes = [...genesFromExpr, ...genesFromCorr];
         geneListPairs = Array.from(new Set(allGenes)).sort();
-        const geneSelectPairs = document.getElementById('geneSelectPairs');
-        geneSelectPairs.innerHTML = "";
-        geneListPairs.forEach(gene => {
-          const opt = document.createElement('option');
-          opt.value = gene;
-          opt.textContent = gene;
-          geneSelectPairs.appendChild(opt);
-        });
-        geneSelectPairs.addEventListener('change', function () {
-          currentGeneIndexPairs = geneListPairs.indexOf(this.value);
-          updatePairsDisplayForGene(this.value);
-        });
+        geneListPairsSet = new Set(geneListPairs.map(gene => gene.toUpperCase()));
+        currentGeneIndexPairs = 0;
       }
 
       function setupGeneNavigationPairs() {
+        if (pairsNavigationInitialized) { return; }
         const prevGenePairs = document.getElementById('prevGenePairs');
         const nextGenePairs = document.getElementById('nextGenePairs');
-        const geneSelectPairs = document.getElementById('geneSelectPairs');
+        const geneInputPairs = document.getElementById('geneInputPairs');
+        if (!prevGenePairs || !nextGenePairs || !geneInputPairs) { return; }
+
+        geneInputPairs.addEventListener('focus', function () {
+          geneInputPairs.select();
+        });
+
+        const selectGeneByIndex = (index) => {
+          if (geneListPairs.length === 0) { return; }
+          const boundedIndex = (index + geneListPairs.length) % geneListPairs.length;
+          currentGeneIndexPairs = boundedIndex;
+          const selectedGene = geneListPairs[boundedIndex];
+          geneInputPairs.value = selectedGene;
+          updatePairsDisplayForGene(selectedGene);
+        };
+
         prevGenePairs.addEventListener('click', function () {
-          if (currentGeneIndexPairs > 0) {
-            currentGeneIndexPairs--;
-            geneSelectPairs.value = geneListPairs[currentGeneIndexPairs];
-            updatePairsDisplayForGene(geneListPairs[currentGeneIndexPairs]);
-          }
+          if (geneListPairs.length === 0) { return; }
+          selectGeneByIndex(currentGeneIndexPairs - 1);
         });
+
         nextGenePairs.addEventListener('click', function () {
-          if (currentGeneIndexPairs < geneListPairs.length - 1) {
-            currentGeneIndexPairs++;
-            geneSelectPairs.value = geneListPairs[currentGeneIndexPairs];
-            updatePairsDisplayForGene(geneListPairs[currentGeneIndexPairs]);
+          if (geneListPairs.length === 0) { return; }
+          selectGeneByIndex(currentGeneIndexPairs + 1);
+        });
+
+        const handleGeneInputSelection = () => {
+          const rawValue = geneInputPairs.value.trim();
+          if (!rawValue) { return; }
+          const resolved = resolveGeneAlias(rawValue);
+          if (!resolved || !geneListPairsSet.has(resolved.toUpperCase())) {
+            alert('Gene not found in the asRNA/mRNA dataset.');
+            return;
+          }
+          currentGeneIndexPairs = geneListPairs.indexOf(resolved);
+          geneInputPairs.value = resolved;
+          updatePairsDisplayForGene(resolved);
+        };
+
+        geneInputPairs.addEventListener('change', handleGeneInputSelection);
+        geneInputPairs.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            handleGeneInputSelection();
           }
         });
+
+        pairsNavigationInitialized = true;
       }
 
       function updatePairsDisplayForGene(gene) {
-        updatePairsCorrelationTable(gene);
-        updatePairsExpressionChart(gene);
+        const canonicalGene = resolveGeneAlias(gene) || gene;
+        updatePairsCorrelationTable(canonicalGene);
+        updatePairsExpressionChart(canonicalGene);
       }
 
       function updatePairsCorrelationTable(gene) {
@@ -1814,37 +1852,141 @@
         });
         pairsChart.render();
       }
-      function lightenColor(color, percent) {
-        let num = parseInt(color.slice(1), 16),
-          amt = Math.round(2.55 * percent),
-          R = (num >> 16) + amt,
-          G = (num >> 8 & 0x00FF) + amt,
-          B = (num & 0x0000FF) + amt;
-        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
-          (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
-          (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+
+      function recordGeneAlias(alias, canonical) {
+        if (alias === undefined || alias === null) { return; }
+        const aliasText = String(alias).trim();
+        if (!aliasText) { return; }
+        const key = aliasText.toUpperCase();
+        if (!geneAliasMap.has(key)) {
+          geneAliasMap.set(key, { alias: aliasText, canonical: canonical ? String(canonical).trim() : aliasText });
+        }
       }
-      function darkenColor(color, percent) {
-        return lightenColor(color, -percent);
+
+      function registerGeneAliases(rows, geneKey, oldKey) {
+        if (!Array.isArray(rows) || rows.length === 0 || !geneKey) { return; }
+        rows.forEach(row => {
+          if (!row) { return; }
+          const geneVal = extractField(row, geneKey, 'gene');
+          const canonical = geneVal !== undefined && geneVal !== null ? String(geneVal).trim() : '';
+          if (canonical) {
+            recordGeneAlias(canonical, canonical);
+          }
+          const oldVal = extractField(row, oldKey, 'old_locus_tag');
+          if (oldVal !== undefined && oldVal !== null) {
+            const oldText = String(oldVal).trim();
+            if (oldText) {
+              recordGeneAlias(oldText, canonical || oldText);
+            }
+          }
+        });
       }
+
+      function normalizeHeaderName(name) {
+        if (!name) { return ''; }
+        return String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      }
+
+      function detectColumnKey(sampleRow, targetName) {
+        if (!sampleRow || !targetName) { return null; }
+        const normalizedTarget = normalizeHeaderName(targetName);
+        return Object.keys(sampleRow).find(key => normalizeHeaderName(key) === normalizedTarget) || null;
+      }
+
+      function addOptionToDatalist(datalist, alias, canonical, seenSet) {
+        if (!datalist) { return; }
+        if (alias === undefined || alias === null) { return; }
+        const aliasText = String(alias).trim();
+        if (!aliasText) { return; }
+        const key = aliasText.toUpperCase();
+        if (seenSet.has(key)) { return; }
+        const option = document.createElement('option');
+        option.value = aliasText;
+        const canonicalText = canonical ? String(canonical).trim() : '';
+        if (canonicalText && canonicalText !== aliasText) {
+          option.label = `${aliasText} → ${canonicalText}`;
+        }
+        datalist.appendChild(option);
+        seenSet.add(key);
+      }
+
+      function refreshGeneDatalists() {
+        const expressionDatalist = document.getElementById('geneList');
+        if (expressionDatalist) {
+          expressionDatalist.innerHTML = "";
+          const seen = new Set();
+          geneArray.forEach(gene => addOptionToDatalist(expressionDatalist, gene, gene, seen));
+          geneAliasMap.forEach(({ alias, canonical }) => {
+            addOptionToDatalist(expressionDatalist, alias, canonical, seen);
+          });
+        }
+
+        const pairsDatalist = document.getElementById('genePairsList');
+        if (pairsDatalist) {
+          pairsDatalist.innerHTML = "";
+          const seen = new Set();
+          const pairsCanonicalSet = new Set(geneListPairs.map(g => g.toUpperCase()));
+          geneListPairs.forEach(gene => addOptionToDatalist(pairsDatalist, gene, gene, seen));
+          geneAliasMap.forEach(({ alias, canonical }) => {
+            if (!canonical) { return; }
+            if (!pairsCanonicalSet.has(canonical.toUpperCase())) { return; }
+            addOptionToDatalist(pairsDatalist, alias, canonical, seen);
+          });
+        }
+      }
+
+      function rebuildGeneAliasMap() {
+        geneAliasMap.clear();
+        dataFiles.forEach(fileObj => {
+          if (!fileObj || !fileObj.data || !fileObj.geneColumn) { return; }
+          registerGeneAliases(fileObj.data, fileObj.geneColumn, fileObj.oldLocusColumn);
+        });
+        if (Array.isArray(window.expressionDataPairs) && window.expressionDataPairs.length > 0) {
+          const sampleRow = window.expressionDataPairs.find(row => row);
+          const geneKey = detectColumnKey(sampleRow, 'gene');
+          const oldKey = detectColumnKey(sampleRow, 'old_locus_tag');
+          if (geneKey) {
+            registerGeneAliases(window.expressionDataPairs, geneKey, oldKey);
+          }
+        }
+        if (Array.isArray(window.correlationDataPairs) && window.correlationDataPairs.length > 0) {
+          const sampleRow = window.correlationDataPairs.find(row => row);
+          const geneKey = detectColumnKey(sampleRow, 'gene');
+          const oldKey = detectColumnKey(sampleRow, 'old_locus_tag');
+          if (geneKey) {
+            registerGeneAliases(window.correlationDataPairs, geneKey, oldKey);
+          }
+        }
+        refreshGeneDatalists();
+      }
+
+      function resolveGeneAlias(value) {
+        if (value === undefined || value === null) { return null; }
+        const trimmed = String(value).trim();
+        if (!trimmed) { return null; }
+        const key = trimmed.toUpperCase();
+        if (geneAliasMap.has(key)) {
+          const { canonical } = geneAliasMap.get(key);
+          return canonical || trimmed;
+        }
+        if (geneArraySet.has(key) || geneListPairsSet.has(key)) {
+          return trimmed;
+        }
+        return null;
+      }
+
       function updateGeneList() {
         const geneSet = new Set();
         dataFiles.forEach(fileObj => {
           fileObj.data.forEach(row => {
-            const geneVal = row[fileObj.geneColumn];
+            const geneVal = extractField(row, fileObj.geneColumn, 'gene');
             if (geneVal !== undefined && geneVal !== null && geneVal !== "") {
               geneSet.add(geneVal);
             }
           });
         });
         geneArray = Array.from(geneSet).sort();
-        const datalist = document.getElementById('geneList');
-        datalist.innerHTML = "";
-        geneArray.forEach(gene => {
-          const option = document.createElement('option');
-          option.value = gene;
-          datalist.appendChild(option);
-        });
+        geneArraySet = new Set(geneArray.map(gene => gene.toUpperCase()));
       }
       function updateTableList() {
         const tableListDiv = document.getElementById('tableList');
@@ -1898,6 +2040,7 @@
           dataFiles.splice(index, 1);
           updateGeneList();
           updateTableList();
+          rebuildGeneAliasMap();
           tableDisplayDiv.innerHTML = "";
           alert(`File "${filename}" removed.`);
         }
@@ -1939,14 +2082,22 @@
         tableDisplayDiv.appendChild(tbl);
       }
       document.getElementById('plotButton').addEventListener('click', function () {
-        const geneName = document.getElementById('geneInput').value.trim();
-        if (!geneName) {
+        const geneInput = document.getElementById('geneInput');
+        const rawGeneName = geneInput.value.trim();
+        if (!rawGeneName) {
           alert("Please enter a gene name.");
           return;
         }
-        plotGene(geneName);
+        const resolvedGene = resolveGeneAlias(rawGeneName);
+        if (!resolvedGene) {
+          alert("Gene not found in the loaded tables.");
+          return;
+        }
+        geneInput.value = resolvedGene;
+        plotGene(resolvedGene);
       });
       function plotGene(geneName) {
+        const canonicalGene = resolveGeneAlias(geneName) || geneName;
         const savedScrollPos = window.pageYOffset;
         const selectedFiles = dataFiles.filter(fileObj => {
           const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
@@ -1954,13 +2105,24 @@
         });
         const seriesData = [];
         selectedFiles.forEach(fileObj => {
-          const record = fileObj.data.find(row => row[fileObj.geneColumn] === geneName);
+          const record = fileObj.data.find(row => {
+            if (!row) { return false; }
+            const geneVal = extractField(row, fileObj.geneColumn, 'gene');
+            if (geneVal !== undefined && geneVal !== null && String(geneVal).trim() === canonicalGene) {
+              return true;
+            }
+            const oldVal = extractField(row, fileObj.oldLocusColumn, 'old_locus_tag');
+            if (oldVal !== undefined && oldVal !== null && String(oldVal).trim() === canonicalGene) {
+              return true;
+            }
+            return false;
+          });
           if (record) {
             seriesData.push({
               x: shortenFilename(fileObj.filename),
               y: record.log2FoldChange,
               pvalue: record.pvalue,
-              label: geneName
+              label: canonicalGene
             });
           }
         });
@@ -1993,7 +2155,7 @@
             axisTicks: { color: '#555' }
           },
           title: {
-            text: 'Differential Expression for ' + geneName,
+            text: 'Differential Expression for ' + canonicalGene,
             style: { fontSize: '20px', color: '#e0e0e0' }
           },
           plotOptions: { bar: { borderRadius: 4, distributed: true } },
@@ -2021,6 +2183,10 @@
       }
       document.getElementById('nextGene').addEventListener('click', function () {
         let currentGene = document.getElementById('geneInput').value.trim();
+        const resolved = resolveGeneAlias(currentGene);
+        if (resolved) {
+          currentGene = resolved;
+        }
         let currentIndex = geneArray.indexOf(currentGene);
         if (currentIndex === -1 || currentIndex === geneArray.length - 1) {
           currentIndex = 0;
@@ -2032,6 +2198,10 @@
       });
       document.getElementById('prevGene').addEventListener('click', function () {
         let currentGene = document.getElementById('geneInput').value.trim();
+        const resolved = resolveGeneAlias(currentGene);
+        if (resolved) {
+          currentGene = resolved;
+        }
         let currentIndex = geneArray.indexOf(currentGene);
         if (currentIndex === -1 || currentIndex === 0) {
           currentIndex = geneArray.length - 1;
@@ -2046,7 +2216,85 @@
         arcog_buildGlobalMapping();
       });
       preloadTabFiles();
-      loadPairsFiles();
+      loadPairsData();
+
+      const motifSections = [1, 2, 3, 4];
+      motifSections.forEach(section => {
+        loadFasta(`sequences/MEME-${section}.fa`, `fastaSelect${section}`, `sequenceDisplay${section}`);
+        registerCopyButtons(section);
+      });
+
+      const modal = document.getElementById('modalHelp');
+      const helpBtn = document.getElementById('helpButton');
+      const closeSpan = document.querySelector('.modal .close');
+      const saveBtn = document.getElementById('saveTable');
+      const legendContainer = document.getElementById('legendTableContainer');
+
+      if (modal && helpBtn && closeSpan && legendContainer) {
+        const loadLegendTable = () => {
+          if (legendContainer.dataset.loaded) {
+            return Promise.resolve();
+          }
+
+          return fetch('arcogs/funclass.tab.txt')
+            .then(response => response.text())
+            .then(text => {
+              text = text.replace(/^\uFEFF/, '');
+              const lines = text.split('\n').filter(line => line.trim() !== "");
+              if (lines.length === 0) {
+                legendContainer.innerHTML = "<p>No data available.</p>";
+                return;
+              }
+
+              let tableHTML = '<table border="1" cellspacing="0" cellpadding="5" style="width: 100%;">';
+              const headers = lines[0].split('\t');
+              tableHTML += '<thead><tr>';
+              headers.forEach(header => {
+                tableHTML += '<th>' + header.trim() + '</th>';
+              });
+              tableHTML += '</tr></thead>';
+              tableHTML += '<tbody>';
+              for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split('\t');
+                if (cols.length < headers.length) continue;
+                tableHTML += '<tr>';
+                cols.forEach(col => {
+                  tableHTML += '<td>' + col.trim() + '</td>';
+                });
+                tableHTML += '</tr>';
+              }
+              tableHTML += '</tbody></table>';
+              legendContainer.innerHTML = tableHTML;
+              legendContainer.dataset.loaded = true;
+            })
+            .catch(error => {
+              console.error("Error loading legend table:", error);
+              legendContainer.innerHTML = "<p>Error loading legend table.</p>";
+            });
+        };
+
+        helpBtn.addEventListener('click', () => {
+          modal.style.display = 'block';
+          loadLegendTable();
+        });
+
+        closeSpan.addEventListener('click', () => {
+          modal.style.display = 'none';
+        });
+
+        window.addEventListener('click', event => {
+          if (event.target === modal) {
+            modal.style.display = 'none';
+          }
+        });
+
+        if (saveBtn) {
+          saveBtn.addEventListener('click', () => {
+            const tableHTML = legendContainer.innerHTML;
+            exportTableToCSV(tableHTML, "arCOG_functional_classes.csv");
+          });
+        }
+      }
     });
 
     async function loadFasta(file, selectId, displayId) {
@@ -2117,95 +2365,29 @@
       });
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
-      loadFasta('sequences/MEME-1.fa', 'fastaSelect1', 'sequenceDisplay1');
-      loadFasta('sequences/MEME-2.fa', 'fastaSelect2', 'sequenceDisplay2');
-      loadFasta('sequences/MEME-3.fa', 'fastaSelect3', 'sequenceDisplay3');
-      loadFasta('sequences/MEME-4.fa', 'fastaSelect4', 'sequenceDisplay4');
-      [1, 2, 3, 4].forEach(num => registerCopyButtons(num));
-
-      /* -------------------- Modal Popup for Legend Table -------------------- */
-      const modal = document.getElementById('modalHelp');
-      const helpBtn = document.getElementById('helpButton');
-      const closeSpan = document.querySelector('.modal .close');
-      const saveBtn = document.getElementById('saveTable');
-      const legendContainer = document.getElementById('legendTableContainer');
-
-      helpBtn.addEventListener('click', function () {
-        modal.style.display = 'block';
-        if (!legendContainer.dataset.loaded) {
-          fetch('arcogs/funclass.tab.txt')
-            .then(response => response.text())
-            .then(text => {
-              text = text.replace(/^\uFEFF/, '');
-              const lines = text.split('\n').filter(line => line.trim() !== "");
-              if (lines.length === 0) {
-                legendContainer.innerHTML = "<p>No data available.</p>";
-                return;
-              }
-              let tableHTML = '<table border="1" cellspacing="0" cellpadding="5" style="width: 100%;">';
-              const headers = lines[0].split('\t');
-              tableHTML += '<thead><tr>';
-              headers.forEach(header => {
-                tableHTML += '<th>' + header.trim() + '</th>';
-              });
-              tableHTML += '</tr></thead>';
-              tableHTML += '<tbody>';
-              for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split('\t');
-                if (cols.length < headers.length) continue;
-                tableHTML += '<tr>';
-                cols.forEach(col => {
-                  tableHTML += '<td>' + col.trim() + '</td>';
-                });
-                tableHTML += '</tr>';
-              }
-              tableHTML += '</tbody></table>';
-              legendContainer.innerHTML = tableHTML;
-              legendContainer.dataset.loaded = true;
-            })
-            .catch(error => {
-              console.error("Error loading legend table:", error);
-              legendContainer.innerHTML = "<p>Error loading legend table.</p>";
-            });
-        }
-      });
-      closeSpan.addEventListener('click', function () {
-        modal.style.display = 'none';
-      });
-      window.addEventListener('click', function (event) {
-        if (event.target === modal) {
-          modal.style.display = 'none';
-        }
-      });
-      function exportTableToCSV(tableHTML, filename) {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = tableHTML;
-        const table = tempDiv.querySelector('table');
-        let csv = [];
-        const rows = table.querySelectorAll("tr");
-        rows.forEach(row => {
-          const cols = row.querySelectorAll("th, td");
-          const rowData = [];
-          cols.forEach(col => {
-            rowData.push('"' + col.innerText.replace(/"/g, '""') + '"');
-          });
-          csv.push(rowData.join(","));
+    function exportTableToCSV(tableHTML, filename) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = tableHTML;
+      const table = tempDiv.querySelector('table');
+      let csv = [];
+      const rows = table.querySelectorAll("tr");
+      rows.forEach(row => {
+        const cols = row.querySelectorAll("th, td");
+        const rowData = [];
+        cols.forEach(col => {
+          rowData.push('"' + col.innerText.replace(/"/g, '""') + '"');
         });
-        const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
-        const downloadLink = document.createElement("a");
-        downloadLink.download = filename;
-        downloadLink.href = window.URL.createObjectURL(csvFile);
-        downloadLink.style.display = "none";
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-      }
-      saveBtn.addEventListener('click', function () {
-        const tableHTML = legendContainer.innerHTML;
-        exportTableToCSV(tableHTML, "arCOG_functional_classes.csv");
+        csv.push(rowData.join(","));
       });
-    });
+      const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+      const downloadLink = document.createElement("a");
+      downloadLink.download = filename;
+      downloadLink.href = window.URL.createObjectURL(csvFile);
+      downloadLink.style.display = "none";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
   </script>
 </body>
 
