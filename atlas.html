@@ -993,7 +993,7 @@
     <a href="mailto:jose.gomes@uni-marburg.de" style="color: #aaa; text-decoration: none;">
       gomesfil@staff.uni-marburg.de
     </a><br>
-    Last updated August 2025
+    Last updated October 2025
   </div>
 
 
@@ -1830,126 +1830,6 @@
         });
         pairsChart.render();
       }
-
-      function recordGeneAlias(alias, canonical) {
-        if (alias === undefined || alias === null) { return; }
-        const aliasText = String(alias).trim();
-        if (!aliasText) { return; }
-        const key = aliasText.toUpperCase();
-        if (!geneAliasMap.has(key)) {
-          geneAliasMap.set(key, { alias: aliasText, canonical: canonical ? String(canonical).trim() : aliasText });
-        }
-      }
-
-      function registerGeneAliases(rows, geneKey, oldKey) {
-        if (!Array.isArray(rows) || rows.length === 0 || !geneKey) { return; }
-        rows.forEach(row => {
-          if (!row) { return; }
-          const geneVal = row[geneKey];
-          const canonical = geneVal !== undefined && geneVal !== null ? String(geneVal).trim() : '';
-          if (canonical) {
-            recordGeneAlias(canonical, canonical);
-          }
-          if (oldKey) {
-            const oldVal = row[oldKey];
-            if (oldVal !== undefined && oldVal !== null) {
-              const oldText = String(oldVal).trim();
-              if (oldText) {
-                recordGeneAlias(oldText, canonical || oldText);
-              }
-            }
-          }
-        });
-      }
-
-      function detectColumnKey(sampleRow, targetName) {
-        if (!sampleRow || !targetName) { return null; }
-        const lowerTarget = targetName.toLowerCase();
-        return Object.keys(sampleRow).find(key => key && key.toLowerCase() === lowerTarget) || null;
-      }
-
-      function addOptionToDatalist(datalist, alias, canonical, seenSet) {
-        if (!datalist) { return; }
-        if (alias === undefined || alias === null) { return; }
-        const aliasText = String(alias).trim();
-        if (!aliasText) { return; }
-        const key = aliasText.toUpperCase();
-        if (seenSet.has(key)) { return; }
-        const option = document.createElement('option');
-        option.value = aliasText;
-        const canonicalText = canonical ? String(canonical).trim() : '';
-        if (canonicalText && canonicalText !== aliasText) {
-          option.label = `${aliasText} → ${canonicalText}`;
-        }
-        datalist.appendChild(option);
-        seenSet.add(key);
-      }
-
-      function refreshGeneDatalists() {
-        const expressionDatalist = document.getElementById('geneList');
-        if (expressionDatalist) {
-          expressionDatalist.innerHTML = "";
-          const seen = new Set();
-          geneArray.forEach(gene => addOptionToDatalist(expressionDatalist, gene, gene, seen));
-          geneAliasMap.forEach(({ alias, canonical }) => {
-            addOptionToDatalist(expressionDatalist, alias, canonical, seen);
-          });
-        }
-
-        const pairsDatalist = document.getElementById('genePairsList');
-        if (pairsDatalist) {
-          pairsDatalist.innerHTML = "";
-          const seen = new Set();
-          const pairsCanonicalSet = new Set(geneListPairs.map(g => g.toUpperCase()));
-          geneListPairs.forEach(gene => addOptionToDatalist(pairsDatalist, gene, gene, seen));
-          geneAliasMap.forEach(({ alias, canonical }) => {
-            if (!canonical) { return; }
-            if (!pairsCanonicalSet.has(canonical.toUpperCase())) { return; }
-            addOptionToDatalist(pairsDatalist, alias, canonical, seen);
-          });
-        }
-      }
-
-      function rebuildGeneAliasMap() {
-        geneAliasMap.clear();
-        dataFiles.forEach(fileObj => {
-          if (!fileObj || !fileObj.data || !fileObj.geneColumn) { return; }
-          registerGeneAliases(fileObj.data, fileObj.geneColumn, fileObj.oldLocusColumn);
-        });
-        if (Array.isArray(window.expressionDataPairs) && window.expressionDataPairs.length > 0) {
-          const sampleRow = window.expressionDataPairs.find(row => row);
-          const geneKey = detectColumnKey(sampleRow, 'gene');
-          const oldKey = detectColumnKey(sampleRow, 'old_locus_tag');
-          if (geneKey) {
-            registerGeneAliases(window.expressionDataPairs, geneKey, oldKey);
-          }
-        }
-        if (Array.isArray(window.correlationDataPairs) && window.correlationDataPairs.length > 0) {
-          const sampleRow = window.correlationDataPairs.find(row => row);
-          const geneKey = detectColumnKey(sampleRow, 'gene');
-          const oldKey = detectColumnKey(sampleRow, 'old_locus_tag');
-          if (geneKey) {
-            registerGeneAliases(window.correlationDataPairs, geneKey, oldKey);
-          }
-        }
-        refreshGeneDatalists();
-      }
-
-      function resolveGeneAlias(value) {
-        if (value === undefined || value === null) { return null; }
-        const trimmed = String(value).trim();
-        if (!trimmed) { return null; }
-        const key = trimmed.toUpperCase();
-        if (geneAliasMap.has(key)) {
-          const { canonical } = geneAliasMap.get(key);
-          return canonical || trimmed;
-        }
-        if (geneArraySet.has(key) || geneListPairsSet.has(key)) {
-          return trimmed;
-        }
-        return null;
-      }
-
       function updateGeneList() {
         const geneSet = new Set();
         dataFiles.forEach(fileObj => {
