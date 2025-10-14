@@ -1064,17 +1064,19 @@
       document.getElementById("geneInput").addEventListener("click", function () {
         this.select();
       });
+
+      function setTableCheckboxes(isChecked) {
+        document.querySelectorAll('#tableList input[type="checkbox"]').forEach(checkbox => {
+          checkbox.checked = isChecked;
+        });
+      }
+
       document.querySelectorAll('.select-all-checkboxes').forEach(button => {
-        button.addEventListener('click', function () {
-          const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
-          checkboxes.forEach(checkbox => checkbox.checked = true);
-        });
+        button.addEventListener('click', () => setTableCheckboxes(true));
       });
+
       document.querySelectorAll('.clear-all-checkboxes').forEach(button => {
-        button.addEventListener('click', function () {
-          const checkboxes = document.querySelectorAll('#tableList input[type="checkbox"]');
-          checkboxes.forEach(checkbox => checkbox.checked = false);
-        });
+        button.addEventListener('click', () => setTableCheckboxes(false));
       });
       document.getElementById('toTopButton').addEventListener('click', function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1435,190 +1437,164 @@
           });
         }
       });
-      const viewerTabBtn = document.getElementById('viewerTabBtn');
-      const tablesTabBtn = document.getElementById('tablesTabBtn');
-      const pairsTabBtn = document.getElementById('pairsTabBtn');
-      const genomeViewerTabBtn = document.getElementById('genomeViewerTabBtn');
-      const motifsTabBtn = document.getElementById('motifsTabBtn');
-      const arCOGAnalysisBtn = document.getElementById('arCOGAnalysisBtn');
-      const viewerTab = document.getElementById('viewerTab');
-      const tablesTab = document.getElementById('tablesTab');
-      const pairsTab = document.getElementById('pairsTab');
-      const genomeViewerTab = document.getElementById('genomeViewerTab');
-      const motifsTab = document.getElementById('motifsTab');
-      const arCOGAnalysisTab = document.getElementById('arCOGAnalysisTab');
-      const resourcesTabBtn = document.getElementById('resourcesTabBtn');
-      const resourcesTab = document.getElementById('resourcesTab');
+      function ensureIgvBrowser() {
+        if (window.igvBrowser) {
+          return;
+        }
 
-      function clearActiveTabs() {
-        const tabContents = [viewerTab, tablesTab, pairsTab, genomeViewerTab, motifsTab, arCOGAnalysisTab, resourcesTab];
-        const tabButtons = [viewerTabBtn, tablesTabBtn, pairsTabBtn, genomeViewerTabBtn, motifsTabBtn, arCOGAnalysisBtn, resourcesTabBtn];
+        const igvOptions = {
+          genome: { id: "S. acidocaldarius DSM639", fastaURL: "sequences/Sacidocaldarius-genome.fa" },
+          locus: "NC_007181.1:1-20000",
+          showChromosomeWidget: false,
+          showCenterGuide: false,
+          trackSpacing: 10,
+          tracks: [
+            {
+              name: "Genes (Curated)",
+              url: "gffs/Sacidocaldarius-2024-curated-coding.gff",
+              format: "gff3",
+              color: "#81d4fa",
+              displayMode: "EXPANDED",
+              height: 100,
+              filterTypes: ['CDS', 'rRNA', 'exon', 'RNase_P_RNA', 'tRNA'],
+              searchable: true,
+              searchableFields: ['Name', 'locus_tag', 'old_locus_tag', 'Family']
+            },
+            {
+              name: "Mobile Elements",
+              url: "gffs/ISfinder-annotation.gff",
+              format: "gff3",
+              color: "#ff8a65",
+              displayMode: "COLLAPSED",
+              height: 40
+            },
+            {
+              name: "ncRNAs / asRNAs",
+              url: "gffs/nc-as-rnas.gff",
+              format: "gff3",
+              color: "purple",
+              displayMode: "EXPANDED",
+              height: 80
+            },
+            {
+              name: "smAP1 (Interaction)",
+              url: "gffs/smAP1_sig.gff",
+              format: "gff3",
+              color: "brown",
+              displayMode: "EXPANDED",
+              height: 50
+            },
+            {
+              name: "smAP2 (Interaction)",
+              url: "gffs/smAP2_sig.gff",
+              format: "gff3",
+              color: "orange",
+              displayMode: "EXPANDED",
+              height: 50
+            },
+            {
+              name: "L7Ae (Interaction)",
+              url: "gffs/L7Ae_sig.gff",
+              format: "gff3",
+              color: "black",
+              displayMode: "EXPANDED",
+              height: 50
+            },
+            {
+              name: "PS Motif-1",
+              url: "gffs/MEME-1.gff",
+              format: "gff3",
+              color: "darkblue",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "PS Motif-2",
+              url: "gffs/MEME-2.gff",
+              format: "gff3",
+              color: "darkblue",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "PS Motif-3",
+              url: "gffs/MEME-3.gff",
+              format: "gff3",
+              color: "darkblue",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "PS Motif-4",
+              url: "gffs/MEME-4.gff",
+              format: "gff3",
+              color: "darkblue",
+              displayMode: "COLLAPSED",
+              height: 40,
+              nameField: "Motif"
+            },
+            {
+              name: "Processing Sites",
+              url: "gffs/sig_ptss.gff",
+              format: "gff3",
+              color: "#ff8a65",
+              displayMode: "COLLAPSED",
+              height: 40
+            }
+          ]
+        };
 
-        tabContents.forEach(tab => {
-          if (tab) { // Check if the element exists
-            tab.classList.remove('active');
-          }
-        });
-
-        tabButtons.forEach(button => {
-          if (button) { // Check if the element exists
-            button.classList.remove('active');
-          }
+        igv.createBrowser(document.getElementById("igvContainer"), igvOptions).then(browser => {
+          window.igvBrowser = browser;
+          console.log("IGV browser created");
         });
       }
-      viewerTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        viewerTab.classList.add('active');
-        viewerTabBtn.classList.add('active');
-      });
-      tablesTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        tablesTab.classList.add('active');
-        tablesTabBtn.classList.add('active');
-      });
-      pairsTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        pairsTab.classList.add('active');
-        pairsTabBtn.classList.add('active');
-      });
-      genomeViewerTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        genomeViewerTab.classList.add('active');
-        genomeViewerTabBtn.classList.add('active');
-        if (!window.igvBrowser) {
-          const igvOptions = {
-            genome: { id: "S. acidocaldarius DSM639", fastaURL: "sequences/Sacidocaldarius-genome.fa" },
-            locus: "NC_007181.1:1-20000",
-            showChromosomeWidget: false,
-            showCenterGuide: false,
-            trackSpacing: 10,
-            tracks: [
-              {
-                name: "Genes (Curated)",
-                url: "gffs/Sacidocaldarius-2024-curated-coding.gff",
-                format: "gff3",
-                color: "#81d4fa",
-                displayMode: "EXPANDED",
-                height: 100,
-                filterTypes: ['CDS', 'rRNA', 'exon', 'RNase_P_RNA', 'tRNA'],
-                searchable: true,
-                searchableFields: ['Name', 'locus_tag', 'old_locus_tag', 'Family']
-              },
-              ,
-              {
-                name: "Mobile Elements",
-                url: "gffs/ISfinder-annotation.gff",
-                format: "gff3",
-                color: "#ff8a65",
-                displayMode: "COLLAPSED",
-                height: 40
-              },
-              {
-                name: "ncRNAs / asRNAs",
-                url: "gffs/nc-as-rnas.gff",
-                format: "gff3",
-                color: "purple",
-                displayMode: "EXPANDED",
-                height: 80
-              },
-              {
-                name: "smAP1 (Interaction)",
-                url: "gffs/smAP1_sig.gff",
-                format: "gff3",
-                color: "brown",
-                displayMode: "EXPANDED",
-                height: 50
-              },
-              {
-                name: "smAP2 (Interaction)",
-                url: "gffs/smAP2_sig.gff",
-                format: "gff3",
-                color: "orange",
-                displayMode: "EXPANDED",
-                height: 50
-              },
-              {
-                name: "L7Ae (Interaction)",
-                url: "gffs/L7Ae_sig.gff",
-                format: "gff3",
-                color: "black",
-                displayMode: "EXPANDED",
-                height: 50
-              },
-              {
-                name: "PS Motif-1",
-                url: "gffs/MEME-1.gff",
-                format: "gff3",
-                color: "darkblue",
-                displayMode: "COLLAPSED",
-                height: 40,
-                nameField: "Motif"
-              },
-              {
-                name: "PS Motif-2",
-                url: "gffs/MEME-2.gff",
-                format: "gff3",
-                color: "darkblue",
-                displayMode: "COLLAPSED",
-                height: 40,
-                nameField: "Motif"
-              },
-              {
-                name: "PS Motif-3",
-                url: "gffs/MEME-3.gff",
-                format: "gff3",
-                color: "darkblue",
-                displayMode: "COLLAPSED",
-                height: 40,
-                nameField: "Motif"
-              },
-              {
-                name: "PS Motif-4",
-                url: "gffs/MEME-4.gff",
-                format: "gff3",
-                color: "darkblue",
-                displayMode: "COLLAPSED",
-                height: 40,
-                nameField: "Motif"
-              },
-              {
-                name: "Processing Sites",
-                url: "gffs/sig_ptss.gff",
-                format: "gff3",
-                color: "#ff8a65",
-                displayMode: "COLLAPSED",
-                height: 40
-              }
-            ]
-          };
-          igv.createBrowser(document.getElementById("igvContainer"), igvOptions).then(function (browser) {
-            window.igvBrowser = browser;
-            console.log("IGV browser created");
-          });
+
+      const tabConfigs = [
+        { buttonId: 'viewerTabBtn', contentId: 'viewerTab' },
+        { buttonId: 'tablesTabBtn', contentId: 'tablesTab' },
+        { buttonId: 'pairsTabBtn', contentId: 'pairsTab' },
+        { buttonId: 'genomeViewerTabBtn', contentId: 'genomeViewerTab', onShow: ensureIgvBrowser },
+        { buttonId: 'motifsTabBtn', contentId: 'motifsTab' },
+        { buttonId: 'arCOGAnalysisBtn', contentId: 'arCOGAnalysisTab' },
+        { buttonId: 'resourcesTabBtn', contentId: 'resourcesTab' }
+      ].map(config => ({
+        ...config,
+        button: document.getElementById(config.buttonId),
+        content: document.getElementById(config.contentId)
+      })).filter(config => config.button && config.content);
+
+      let activeTabConfig = null;
+
+      function activateTab(config) {
+        if (activeTabConfig) {
+          activeTabConfig.button.classList.remove('active');
+          activeTabConfig.content.classList.remove('active');
         }
+
+        config.button.classList.add('active');
+        config.content.classList.add('active');
+        activeTabConfig = config;
+
+        if (typeof config.onShow === 'function') {
+          config.onShow();
+        }
+      }
+
+      tabConfigs.forEach(config => {
+        config.button.addEventListener('click', () => activateTab(config));
       });
-      motifsTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        motifsTab.classList.add('active');
-        motifsTabBtn.classList.add('active');
-      });
-      arCOGAnalysisBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        arCOGAnalysisTab.classList.add('active');
-        arCOGAnalysisBtn.classList.add('active');
-      });
-      resourcesTabBtn.addEventListener('click', function () {
-        clearActiveTabs();
-        resourcesTab.classList.add('active');
-        resourcesTabBtn.classList.add('active');
-      });
+
+      const initialTab = tabConfigs.find(config => config.buttonId === 'viewerTabBtn') || tabConfigs[0];
+      if (initialTab) {
+        activateTab(initialTab);
+      }
 
 
       /* -------------------- asRNA/mRNA Pairs Tab: load pairs data -------------------- */
-      function loadPairsFiles() {
-        loadPairsData();
-      }
-
       function loadPairsData() {
         const uploadStatusPairs = document.getElementById('uploadStatusPairs');
         Promise.all([
@@ -1813,19 +1789,6 @@
           legend: { show: false }
         });
         pairsChart.render();
-      }
-      function lightenColor(color, percent) {
-        let num = parseInt(color.slice(1), 16),
-          amt = Math.round(2.55 * percent),
-          R = (num >> 16) + amt,
-          G = (num >> 8 & 0x00FF) + amt,
-          B = (num & 0x0000FF) + amt;
-        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
-          (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
-          (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
-      }
-      function darkenColor(color, percent) {
-        return lightenColor(color, -percent);
       }
       function updateGeneList() {
         const geneSet = new Set();
@@ -2046,7 +2009,85 @@
         arcog_buildGlobalMapping();
       });
       preloadTabFiles();
-      loadPairsFiles();
+      loadPairsData();
+
+      const motifSections = [1, 2, 3, 4];
+      motifSections.forEach(section => {
+        loadFasta(`sequences/MEME-${section}.fa`, `fastaSelect${section}`, `sequenceDisplay${section}`);
+        registerCopyButtons(section);
+      });
+
+      const modal = document.getElementById('modalHelp');
+      const helpBtn = document.getElementById('helpButton');
+      const closeSpan = document.querySelector('.modal .close');
+      const saveBtn = document.getElementById('saveTable');
+      const legendContainer = document.getElementById('legendTableContainer');
+
+      if (modal && helpBtn && closeSpan && legendContainer) {
+        const loadLegendTable = () => {
+          if (legendContainer.dataset.loaded) {
+            return Promise.resolve();
+          }
+
+          return fetch('arcogs/funclass.tab.txt')
+            .then(response => response.text())
+            .then(text => {
+              text = text.replace(/^\uFEFF/, '');
+              const lines = text.split('\n').filter(line => line.trim() !== "");
+              if (lines.length === 0) {
+                legendContainer.innerHTML = "<p>No data available.</p>";
+                return;
+              }
+
+              let tableHTML = '<table border="1" cellspacing="0" cellpadding="5" style="width: 100%;">';
+              const headers = lines[0].split('\t');
+              tableHTML += '<thead><tr>';
+              headers.forEach(header => {
+                tableHTML += '<th>' + header.trim() + '</th>';
+              });
+              tableHTML += '</tr></thead>';
+              tableHTML += '<tbody>';
+              for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split('\t');
+                if (cols.length < headers.length) continue;
+                tableHTML += '<tr>';
+                cols.forEach(col => {
+                  tableHTML += '<td>' + col.trim() + '</td>';
+                });
+                tableHTML += '</tr>';
+              }
+              tableHTML += '</tbody></table>';
+              legendContainer.innerHTML = tableHTML;
+              legendContainer.dataset.loaded = true;
+            })
+            .catch(error => {
+              console.error("Error loading legend table:", error);
+              legendContainer.innerHTML = "<p>Error loading legend table.</p>";
+            });
+        };
+
+        helpBtn.addEventListener('click', () => {
+          modal.style.display = 'block';
+          loadLegendTable();
+        });
+
+        closeSpan.addEventListener('click', () => {
+          modal.style.display = 'none';
+        });
+
+        window.addEventListener('click', event => {
+          if (event.target === modal) {
+            modal.style.display = 'none';
+          }
+        });
+
+        if (saveBtn) {
+          saveBtn.addEventListener('click', () => {
+            const tableHTML = legendContainer.innerHTML;
+            exportTableToCSV(tableHTML, "arCOG_functional_classes.csv");
+          });
+        }
+      }
     });
 
     async function loadFasta(file, selectId, displayId) {
@@ -2117,95 +2158,29 @@
       });
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
-      loadFasta('sequences/MEME-1.fa', 'fastaSelect1', 'sequenceDisplay1');
-      loadFasta('sequences/MEME-2.fa', 'fastaSelect2', 'sequenceDisplay2');
-      loadFasta('sequences/MEME-3.fa', 'fastaSelect3', 'sequenceDisplay3');
-      loadFasta('sequences/MEME-4.fa', 'fastaSelect4', 'sequenceDisplay4');
-      [1, 2, 3, 4].forEach(num => registerCopyButtons(num));
-
-      /* -------------------- Modal Popup for Legend Table -------------------- */
-      const modal = document.getElementById('modalHelp');
-      const helpBtn = document.getElementById('helpButton');
-      const closeSpan = document.querySelector('.modal .close');
-      const saveBtn = document.getElementById('saveTable');
-      const legendContainer = document.getElementById('legendTableContainer');
-
-      helpBtn.addEventListener('click', function () {
-        modal.style.display = 'block';
-        if (!legendContainer.dataset.loaded) {
-          fetch('arcogs/funclass.tab.txt')
-            .then(response => response.text())
-            .then(text => {
-              text = text.replace(/^\uFEFF/, '');
-              const lines = text.split('\n').filter(line => line.trim() !== "");
-              if (lines.length === 0) {
-                legendContainer.innerHTML = "<p>No data available.</p>";
-                return;
-              }
-              let tableHTML = '<table border="1" cellspacing="0" cellpadding="5" style="width: 100%;">';
-              const headers = lines[0].split('\t');
-              tableHTML += '<thead><tr>';
-              headers.forEach(header => {
-                tableHTML += '<th>' + header.trim() + '</th>';
-              });
-              tableHTML += '</tr></thead>';
-              tableHTML += '<tbody>';
-              for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split('\t');
-                if (cols.length < headers.length) continue;
-                tableHTML += '<tr>';
-                cols.forEach(col => {
-                  tableHTML += '<td>' + col.trim() + '</td>';
-                });
-                tableHTML += '</tr>';
-              }
-              tableHTML += '</tbody></table>';
-              legendContainer.innerHTML = tableHTML;
-              legendContainer.dataset.loaded = true;
-            })
-            .catch(error => {
-              console.error("Error loading legend table:", error);
-              legendContainer.innerHTML = "<p>Error loading legend table.</p>";
-            });
-        }
-      });
-      closeSpan.addEventListener('click', function () {
-        modal.style.display = 'none';
-      });
-      window.addEventListener('click', function (event) {
-        if (event.target === modal) {
-          modal.style.display = 'none';
-        }
-      });
-      function exportTableToCSV(tableHTML, filename) {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = tableHTML;
-        const table = tempDiv.querySelector('table');
-        let csv = [];
-        const rows = table.querySelectorAll("tr");
-        rows.forEach(row => {
-          const cols = row.querySelectorAll("th, td");
-          const rowData = [];
-          cols.forEach(col => {
-            rowData.push('"' + col.innerText.replace(/"/g, '""') + '"');
-          });
-          csv.push(rowData.join(","));
+    function exportTableToCSV(tableHTML, filename) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = tableHTML;
+      const table = tempDiv.querySelector('table');
+      let csv = [];
+      const rows = table.querySelectorAll("tr");
+      rows.forEach(row => {
+        const cols = row.querySelectorAll("th, td");
+        const rowData = [];
+        cols.forEach(col => {
+          rowData.push('"' + col.innerText.replace(/"/g, '""') + '"');
         });
-        const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
-        const downloadLink = document.createElement("a");
-        downloadLink.download = filename;
-        downloadLink.href = window.URL.createObjectURL(csvFile);
-        downloadLink.style.display = "none";
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-      }
-      saveBtn.addEventListener('click', function () {
-        const tableHTML = legendContainer.innerHTML;
-        exportTableToCSV(tableHTML, "arCOG_functional_classes.csv");
+        csv.push(rowData.join(","));
       });
-    });
+      const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+      const downloadLink = document.createElement("a");
+      downloadLink.download = filename;
+      downloadLink.href = window.URL.createObjectURL(csvFile);
+      downloadLink.style.display = "none";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
   </script>
 </body>
 
