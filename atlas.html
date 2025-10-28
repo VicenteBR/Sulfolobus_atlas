@@ -249,6 +249,11 @@
       let geneOldLocusMap = new Map();
       let pairsGeneLookupMap = new Map();
       let pairsGeneOldLocusMap = new Map();
+      let expressionDataPromise = null;
+      let pairsDataPromise = null;
+      let arcogDataPromise = null;
+      let motifsInitialized = false;
+      let pairsNavigationInitialized = false;
       let arcog_currentSortColumn = null;
       let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
       let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
@@ -290,6 +295,10 @@
       }
       document.getElementById("geneInput").addEventListener("click", function () {
         this.select();
+        preloadTabFiles().catch(() => { /* handled elsewhere */ });
+      });
+      document.getElementById('geneInput').addEventListener('focus', function () {
+        preloadTabFiles().catch(() => { /* handled elsewhere */ });
       });
 
       function setTableCheckboxes(isChecked) {
@@ -383,7 +392,11 @@
         return filename.replace(/deseq-tabs\/DESeq2_/, "").replace(/deseq-tabs\/DESeq2-/, "").replace(/\.tab$/, "");
       }
       function preloadTabFiles() {
-        fetch('data/tabFiles.json')
+        if (expressionDataPromise) {
+          return expressionDataPromise;
+        }
+
+        expressionDataPromise = fetch('data/tabFiles.json')
           .then(response => response.json())
           .then(fileList => {
             dataFiles = [];
@@ -400,19 +413,20 @@
                   dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn, oldLocusColumn: oldLocusColumn });
                 });
             });
-            Promise.all(promises)
-              .then(() => {
-                updateGeneList();
-                updateTableList();
-                console.log("All .tab files preloaded successfully!");
-              })
-              .catch(error => {
-                console.error("Error preloading .tab files:", error);
-              });
+            return Promise.all(promises);
+          })
+          .then(() => {
+            updateGeneList();
+            updateTableList();
+            console.log("All .tab files preloaded successfully!");
           })
           .catch(error => {
-            console.error("Error fetching tab files list:", error);
+            console.error("Error preloading .tab files:", error);
+            expressionDataPromise = null;
+            throw error;
           });
+
+        return expressionDataPromise;
       }
       function arcog_populateAutocomplete() {
         const datalist = document.getElementById('arcog_geneList');
@@ -482,6 +496,24 @@
         arcog_populateDropdown();
         arcog_populateAutocomplete();
       }
+
+      function loadArCOGResources() {
+        if (arcogDataPromise) {
+          return arcogDataPromise;
+        }
+
+        arcogDataPromise = Promise.all([loadGFFData(), loadArCOGData(), loadSulfoCogData(), loadArCOGNamesData()])
+          .then(() => {
+            arcog_buildGlobalMapping();
+          })
+          .catch(error => {
+            console.error('Error preparing arCOG data:', error);
+            arcogDataPromise = null;
+            throw error;
+          });
+
+        return arcogDataPromise;
+      }
       function arcog_populateDropdown() {
         const dropdown = document.getElementById('arcog_annotationDropdown');
         dropdown.innerHTML = '<option value="ALL">All codes</option>';
@@ -535,7 +567,13 @@
 
         table.style.display = "table";
       }
-      function arcog_filterByAnnotationCode() {
+      async function arcog_filterByAnnotationCode() {
+        try {
+          await loadArCOGResources();
+        } catch (error) {
+          document.getElementById('arcog_filterMessage').textContent = 'Failed to load arCOG reference data.';
+          return;
+        }
         const selectedOptions = Array.from(document.getElementById('arcog_annotationDropdown').selectedOptions).map(opt => opt.value);
         let filtered = [];
         if (selectedOptions.includes("ALL")) {
@@ -661,7 +699,14 @@
         if (file) {
           loadDESeq2File(file).then(() => {
             document.getElementById('arcog_searchMessage').textContent = "DESeq2 data loaded successfully.";
-            arcog_buildGlobalMapping();
+            loadArCOGResources()
+              .then(() => {
+                arcog_buildGlobalMapping();
+              })
+              .catch(() => {
+                document.getElementById('arcog_filterMessage').textContent = 'Unable to refresh arCOG reference data.';
+                arcog_buildGlobalMapping();
+              });
           });
         }
       });
@@ -783,11 +828,11 @@
 
       const tabConfigs = [
         { buttonId: 'viewerTabBtn', contentId: 'viewerTab' },
-        { buttonId: 'tablesTabBtn', contentId: 'tablesTab' },
-        { buttonId: 'pairsTabBtn', contentId: 'pairsTab' },
+        { buttonId: 'tablesTabBtn', contentId: 'tablesTab', onShow: () => preloadTabFiles().catch(() => { /* handled elsewhere */ }) },
+        { buttonId: 'pairsTabBtn', contentId: 'pairsTab', onShow: () => loadPairsData().catch(() => { /* handled elsewhere */ }) },
         { buttonId: 'genomeViewerTabBtn', contentId: 'genomeViewerTab', onShow: ensureIgvBrowser },
-        { buttonId: 'motifsTabBtn', contentId: 'motifsTab' },
-        { buttonId: 'arCOGAnalysisBtn', contentId: 'arCOGAnalysisTab' },
+        { buttonId: 'motifsTabBtn', contentId: 'motifsTab', onShow: ensureMotifsInitialized },
+        { buttonId: 'arCOGAnalysisBtn', contentId: 'arCOGAnalysisTab', onShow: () => loadArCOGResources().catch(() => { /* handled elsewhere */ }) },
         { buttonId: 'resourcesTabBtn', contentId: 'resourcesTab' }
       ].map(config => ({
         ...config,
@@ -925,36 +970,68 @@
 
       /* -------------------- asRNA/mRNA Pairs Tab: load pairs data -------------------- */
       function loadPairsData() {
+        if (pairsDataPromise) {
+          return pairsDataPromise;
+        }
+
         const uploadStatusPairs = document.getElementById('uploadStatusPairs');
-        Promise.all([
+
+        pairsDataPromise = Promise.all([
           fetch('data/correlation.txt').then(response => response.text()),
           fetch('data/expression.txt').then(response => response.text())
         ]).then(([corrText, exprText]) => {
-          Papa.parse(corrText, {
-            header: true, delimiter: "\t", dynamicTyping: true, complete: function (results) {
-              window.correlationDataPairs = results.data.filter(row => row.Gene);
-              checkPairsReady();
-            }
-          });
-          Papa.parse(exprText, {
-            header: true, delimiter: "\t", dynamicTyping: true, complete: function (results) {
-              window.expressionDataPairs = results.data.filter(row => row.Gene);
-              checkPairsReady();
-            }
-          });
-        }).catch(error => {
-          uploadStatusPairs.textContent = "Error loading data: " + error;
-        });
-      }
-
-      function checkPairsReady() {
-        if (window.correlationDataPairs && window.expressionDataPairs) {
+          return Promise.all([
+            new Promise((resolve, reject) => {
+              Papa.parse(corrText, {
+                header: true,
+                delimiter: "\t",
+                dynamicTyping: true,
+                complete(results) {
+                  window.correlationDataPairs = results.data.filter(row => row.Gene);
+                  resolve();
+                },
+                error(err) {
+                  reject(err);
+                }
+              });
+            }),
+            new Promise((resolve, reject) => {
+              Papa.parse(exprText, {
+                header: true,
+                delimiter: "\t",
+                dynamicTyping: true,
+                complete(results) {
+                  window.expressionDataPairs = results.data.filter(row => row.Gene);
+                  resolve();
+                },
+                error(err) {
+                  reject(err);
+                }
+              });
+            })
+          ]);
+        }).then(() => {
           buildGeneListPairs();
-          setupGeneNavigationPairs();
+          if (!pairsNavigationInitialized) {
+            setupGeneNavigationPairs();
+            pairsNavigationInitialized = true;
+          }
           if (geneListPairs.length > 0) {
             updatePairsDisplayForGene(geneListPairs[0]);
           }
-        }
+          if (uploadStatusPairs) {
+            uploadStatusPairs.textContent = '';
+          }
+        }).catch(error => {
+          console.error('Error loading asRNA/mRNA pairs data:', error);
+          if (uploadStatusPairs) {
+            uploadStatusPairs.textContent = "Error loading data: " + error;
+          }
+          pairsDataPromise = null;
+          throw error;
+        });
+
+        return pairsDataPromise;
       }
 
       function refreshPairsOldLocusMappings() {
@@ -1433,10 +1510,16 @@
         return trimmed === "" ? null : trimmed;
       }
 
-      document.getElementById('plotButton').addEventListener('click', function () {
+      document.getElementById('plotButton').addEventListener('click', async function () {
         const geneName = document.getElementById('geneInput').value.trim();
         if (!geneName) {
           alert("Please enter a gene name.");
+          return;
+        }
+        try {
+          await preloadTabFiles();
+        } catch (error) {
+          alert('Failed to load expression tables. Please try again.');
           return;
         }
         plotGene(geneName);
@@ -1533,7 +1616,17 @@
         chart.render();
         window.scrollTo(0, savedScrollPos);
       }
-      document.getElementById('nextGene').addEventListener('click', function () {
+      document.getElementById('nextGene').addEventListener('click', async function () {
+        try {
+          await preloadTabFiles();
+        } catch (error) {
+          alert('Failed to load expression tables. Please try again.');
+          return;
+        }
+        if (geneArray.length === 0) {
+          alert('No expression tables are available.');
+          return;
+        }
         let currentGene = document.getElementById('geneInput').value.trim();
         let currentIndex = geneArray.indexOf(currentGene);
         if (currentIndex === -1 || currentIndex === geneArray.length - 1) {
@@ -1544,7 +1637,17 @@
         document.getElementById('geneInput').value = geneArray[currentIndex];
         plotGene(geneArray[currentIndex]);
       });
-      document.getElementById('prevGene').addEventListener('click', function () {
+      document.getElementById('prevGene').addEventListener('click', async function () {
+        try {
+          await preloadTabFiles();
+        } catch (error) {
+          alert('Failed to load expression tables. Please try again.');
+          return;
+        }
+        if (geneArray.length === 0) {
+          alert('No expression tables are available.');
+          return;
+        }
         let currentGene = document.getElementById('geneInput').value.trim();
         let currentIndex = geneArray.indexOf(currentGene);
         if (currentIndex === -1 || currentIndex === 0) {
@@ -1556,11 +1659,6 @@
         plotGene(geneArray[currentIndex]);
       });
       /* -------------------- End of Viewer and Pairs Code -------------------- */
-      Promise.all([loadGFFData(), loadArCOGData(), loadSulfoCogData(), loadArCOGNamesData()]).then(() => {
-        arcog_buildGlobalMapping();
-      });
-      preloadTabFiles();
-      loadPairsData();
 
       const motifConfigs = [
         { svg: 'svg/motif-1-weblogo.svg', fasta: 'sequences/MEME-1.fa', alt: 'Processing site motif 1' },
@@ -1568,6 +1666,21 @@
         { svg: 'svg/motif-3-weblogo.svg', fasta: 'sequences/MEME-3.fa', alt: 'Processing site motif 3' },
         { svg: 'svg/motif-4-weblogo.svg', fasta: 'sequences/MEME-4.fa', alt: 'Processing site motif 4' }
       ];
+
+      function ensureMotifsInitialized() {
+        if (motifsInitialized) {
+          return;
+        }
+        const motifsContainer = document.getElementById('motifsContainer');
+        if (!motifsContainer) {
+          return;
+        }
+        motifConfigs.forEach((config, index) => {
+          const section = createMotifSection(config, index + 1);
+          motifsContainer.appendChild(section);
+        });
+        motifsInitialized = true;
+      }
 
       function createMotifSection(config, index) {
         const section = document.createElement('div');
@@ -1636,14 +1749,6 @@
         });
 
         return section;
-      }
-
-      const motifsContainer = document.getElementById('motifsContainer');
-      if (motifsContainer) {
-        motifConfigs.forEach((config, index) => {
-          const section = createMotifSection(config, index + 1);
-          motifsContainer.appendChild(section);
-        });
       }
 
       const modal = document.getElementById('modalHelp');
