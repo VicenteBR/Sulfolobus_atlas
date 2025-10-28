@@ -1196,10 +1196,13 @@
 
       function setTableCheckboxes(isChecked) {
         document.querySelectorAll('#tableList input[type="checkbox"]').forEach(checkbox => {
+          if (checkbox.checked === isChecked) {
+            return;
+          }
           checkbox.checked = isChecked;
           const fileObj = dataFiles.find(f => f.filename === checkbox.dataset.filename);
           if (fileObj) {
-            fileObj.isSelected = isChecked;
+            handleFileSelectionToggle(fileObj, isChecked, checkbox).catch(() => { });
           }
         });
       }
@@ -1308,6 +1311,23 @@
         }));
         updateGeneList();
         updateTableList();
+      }
+
+      async function handleFileSelectionToggle(fileObj, shouldSelect, checkboxElement = null) {
+        fileObj.isSelected = shouldSelect;
+        if (!shouldSelect || fileObj.isLoaded || fileObj.isLoading) {
+          return;
+        }
+        try {
+          await loadDataFile(fileObj);
+        } catch (error) {
+          console.error(`Failed to load ${fileObj.filename} after selection:`, error);
+          fileObj.isSelected = false;
+          if (checkboxElement) {
+            checkboxElement.checked = false;
+          }
+          alert(`Failed to load ${fileObj.filename}. Please try again.`);
+        }
       }
 
       async function loadDataFile(fileObj) {
@@ -2130,7 +2150,7 @@
           checkbox.dataset.filename = fileObj.filename;
           checkbox.checked = Boolean(fileObj.isSelected);
           checkbox.addEventListener('change', () => {
-            fileObj.isSelected = checkbox.checked;
+            handleFileSelectionToggle(fileObj, checkbox.checked, checkbox).catch(() => { });
           });
           selectCell.appendChild(checkbox);
           row.appendChild(selectCell);
