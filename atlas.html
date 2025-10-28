@@ -1197,6 +1197,10 @@
       function setTableCheckboxes(isChecked) {
         document.querySelectorAll('#tableList input[type="checkbox"]').forEach(checkbox => {
           checkbox.checked = isChecked;
+          const fileObj = dataFiles.find(f => f.filename === checkbox.dataset.filename);
+          if (fileObj) {
+            fileObj.isSelected = isChecked;
+          }
         });
       }
 
@@ -1286,16 +1290,45 @@
       function shortenFilename(filename) {
         return filename.replace(/deseq-tabs\/DESeq2_/, "").replace(/deseq-tabs\/DESeq2-/, "").replace(/\.tab$/, "");
       }
-      async function preloadTabFiles() {
+      async function initializeTabManifest() {
         const fileList = await safeFetchJSON('data/tabFiles.json');
         if (!Array.isArray(fileList)) {
           return;
         }
-        dataFiles = [];
-        const promises = fileList.map(async fileName => {
-          const text = await safeFetchText(fileName);
+        dataFiles = fileList.map(fileName => ({
+          filename: fileName,
+          data: null,
+          geneColumn: null,
+          oldLocusColumn: null,
+          isLoaded: false,
+          isLoading: false,
+          isSelected: false,
+          error: null,
+          loadingPromise: null
+        }));
+        updateGeneList();
+        updateTableList();
+      }
+
+      async function loadDataFile(fileObj) {
+        if (!fileObj) {
+          return null;
+        }
+        if (fileObj.isLoaded && Array.isArray(fileObj.data)) {
+          return fileObj.data;
+        }
+        if (fileObj.isLoading && fileObj.loadingPromise) {
+          return fileObj.loadingPromise;
+        }
+
+        fileObj.error = null;
+        fileObj.isLoading = true;
+        updateTableList();
+
+        const basePromise = (async () => {
+          const text = await safeFetchText(fileObj.filename);
           if (text === null) {
-            return;
+            throw new Error(`Failed to fetch ${fileObj.filename}`);
           }
           const delimiter = text.indexOf(",") > -1 ? "," : "\t";
           const parsed = Papa.parse(text, {
@@ -1304,24 +1337,43 @@
             dynamicTyping: true,
             skipEmptyLines: true
           });
-          if (!parsed.data || parsed.data.length === 0) {
-            return;
-          }
+          const parsedData = Array.isArray(parsed.data) ? parsed.data : [];
           const headers = (parsed.meta && parsed.meta.fields && parsed.meta.fields.length)
             ? parsed.meta.fields
-            : Object.keys(parsed.data[0]);
-          const geneColumn = headers.find(h => h && h.toLowerCase() === "gene") || headers[0];
-          const oldLocusColumn = headers.find(h => h && h.toLowerCase().trim() === "old_locus_tag");
-          dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn, oldLocusColumn: oldLocusColumn });
-        });
-        try {
-          await Promise.all(promises);
-          updateGeneList();
-          updateTableList();
-          console.log("All .tab files preloaded successfully!");
-        } catch (error) {
-          console.error("Error preloading .tab files:", error);
-        }
+            : (parsedData.length > 0 ? Object.keys(parsedData[0]) : []);
+          const geneColumn = headers.find(h => h && h.toLowerCase() === "gene") || headers[0] || null;
+          const oldLocusColumn = headers.find(h => h && h.toLowerCase().trim() === "old_locus_tag") || null;
+
+          fileObj.data = parsedData;
+          fileObj.geneColumn = geneColumn;
+          fileObj.oldLocusColumn = oldLocusColumn;
+          fileObj.isLoaded = true;
+          return parsedData;
+        })();
+
+        fileObj.loadingPromise = basePromise
+          .then(result => {
+            fileObj.isLoading = false;
+            fileObj.error = null;
+            fileObj.loadingPromise = null;
+            updateGeneList();
+            updateTableList();
+            return result;
+          })
+          .catch(error => {
+            console.error(`Error loading ${fileObj.filename}:`, error);
+            fileObj.isLoading = false;
+            fileObj.isLoaded = false;
+            fileObj.data = null;
+            fileObj.geneColumn = null;
+            fileObj.oldLocusColumn = null;
+            fileObj.error = 'Failed to load';
+            fileObj.loadingPromise = null;
+            updateTableList();
+            throw error;
+          });
+
+        return fileObj.loadingPromise;
       }
       function arcog_populateAutocomplete() {
         const datalist = document.getElementById('arcog_geneList');
@@ -2002,6 +2054,9 @@
         geneLookupMap = new Map();
         geneOldLocusMap = new Map();
         dataFiles.forEach(fileObj => {
+          if (!fileObj || !Array.isArray(fileObj.data) || !fileObj.data.length || !fileObj.geneColumn) {
+            return;
+          }
           fileObj.data.forEach(row => {
             const geneVal = row[fileObj.geneColumn];
             if (geneVal === undefined || geneVal === null || geneVal === "") {
@@ -2060,7 +2115,7 @@
         }
         const tbl = document.createElement('table');
         const headerRow = document.createElement('tr');
-        ['Select', 'Filename', 'Actions'].forEach(text => {
+        ['Select', 'Filename', 'Status', 'Actions'].forEach(text => {
           const th = document.createElement('th');
           th.textContent = text;
           headerRow.appendChild(th);
@@ -2073,21 +2128,56 @@
           checkbox.type = "checkbox";
           checkbox.classList.add("file-select-checkbox");
           checkbox.dataset.filename = fileObj.filename;
-          checkbox.checked = true;
+          checkbox.checked = Boolean(fileObj.isSelected);
+          checkbox.addEventListener('change', () => {
+            fileObj.isSelected = checkbox.checked;
+          });
           selectCell.appendChild(checkbox);
           row.appendChild(selectCell);
           const nameCell = document.createElement('td');
           nameCell.textContent = fileObj.filename;
           row.appendChild(nameCell);
+          const statusCell = document.createElement('td');
+          if (fileObj.isLoading) {
+            statusCell.textContent = 'Loading…';
+          } else if (fileObj.error) {
+            statusCell.textContent = fileObj.error;
+            statusCell.style.color = '#ff6b6b';
+          } else if (fileObj.isLoaded) {
+            const rowCount = Array.isArray(fileObj.data) ? fileObj.data.length : 0;
+            statusCell.textContent = rowCount > 0 ? `Loaded (${rowCount.toLocaleString()} rows)` : 'Loaded';
+          } else {
+            statusCell.textContent = 'Not loaded';
+          }
+          row.appendChild(statusCell);
           const actionsCell = document.createElement('td');
+          const loadBtn = document.createElement('button');
+          loadBtn.textContent = fileObj.isLoaded ? "Loaded" : "Load";
+          loadBtn.style.width = "90px";
+          if (fileObj.isLoaded) {
+            loadBtn.disabled = true;
+          } else {
+            loadBtn.disabled = fileObj.isLoading;
+            loadBtn.addEventListener('click', async () => {
+              try {
+                await loadDataFile(fileObj);
+              } catch (error) {
+                alert(`Failed to load ${fileObj.filename}.`);
+              }
+            });
+          }
           const viewBtn = document.createElement('button');
           viewBtn.textContent = "View";
           viewBtn.style.width = "90px";
+          viewBtn.disabled = fileObj.isLoading;
           viewBtn.addEventListener('click', function () { viewTable(fileObj.filename); });
           const removeBtn = document.createElement('button');
           removeBtn.textContent = "Remove";
           removeBtn.style.width = "90px";
+          removeBtn.disabled = fileObj.isLoading;
           removeBtn.addEventListener('click', function () { removeFile(fileObj.filename); });
+          actionsCell.appendChild(loadBtn);
+          actionsCell.appendChild(document.createTextNode(" "));
           actionsCell.appendChild(viewBtn);
           actionsCell.appendChild(document.createTextNode(" "));
           actionsCell.appendChild(removeBtn);
@@ -2163,11 +2253,18 @@
           alert(`File "${filename}" removed.`);
         }
       }
-      function viewTable(filename) {
+      async function viewTable(filename) {
         const tableDisplayDiv = document.getElementById('tableDisplay');
         const fileObj = dataFiles.find(f => f.filename === filename);
         if (!fileObj) {
           tableDisplayDiv.innerHTML = "<p>File not found.</p>";
+          return;
+        }
+        tableDisplayDiv.innerHTML = "<p>Loading table...</p>";
+        try {
+          await loadDataFile(fileObj);
+        } catch (error) {
+          tableDisplayDiv.innerHTML = "<p>Failed to load this table. Please try again.</p>";
           return;
         }
         if (!fileObj.data || fileObj.data.length === 0) {
@@ -2211,16 +2308,32 @@
         return trimmed === "" ? null : trimmed;
       }
 
-      document.getElementById('plotButton').addEventListener('click', function () {
+      document.getElementById('plotButton').addEventListener('click', async function () {
         const geneName = document.getElementById('geneInput').value.trim();
         if (!geneName) {
           alert("Please enter a gene name.");
           return;
         }
-        plotGene(geneName);
+        await plotGene(geneName);
       });
-      function plotGene(geneIdentifier) {
-        const resolvedGene = resolveGeneIdentifier(geneIdentifier);
+      async function plotGene(geneIdentifier) {
+        const trimmedIdentifier = geneIdentifier ? geneIdentifier.trim() : '';
+        if (!trimmedIdentifier) {
+          alert("Please enter a gene name.");
+          return;
+        }
+        const selectedFiles = dataFiles.filter(fileObj => fileObj.isSelected);
+        if (selectedFiles.length === 0) {
+          alert("Select at least one table to plot.");
+          return;
+        }
+        try {
+          await Promise.all(selectedFiles.map(fileObj => loadDataFile(fileObj)));
+        } catch (error) {
+          alert("Failed to load one or more selected tables. Please try again.");
+          return;
+        }
+        const resolvedGene = resolveGeneIdentifier(trimmedIdentifier);
         if (!resolvedGene) {
           alert("Gene or old locus tag not found in the loaded tables.");
           return;
@@ -2230,12 +2343,12 @@
         const normalizedGene = normalizeGeneKey(resolvedGene);
         let resolvedOldLocusTag = geneOldLocusMap.get(resolvedGene) || null;
         const savedScrollPos = window.pageYOffset;
-        const selectedFiles = dataFiles.filter(fileObj => {
-          const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
-          return checkbox && checkbox.checked;
-        });
+        const activeFiles = selectedFiles.filter(fileObj => fileObj.isLoaded && Array.isArray(fileObj.data));
         const seriesData = [];
-        selectedFiles.forEach(fileObj => {
+        activeFiles.forEach(fileObj => {
+          if (!Array.isArray(fileObj.data) || !fileObj.geneColumn) {
+            return;
+          }
           const record = fileObj.data.find(row => normalizeGeneKey(row[fileObj.geneColumn]) === normalizedGene);
           if (record) {
             if (!resolvedOldLocusTag) {
@@ -2311,7 +2424,11 @@
         chart.render();
         window.scrollTo(0, savedScrollPos);
       }
-      document.getElementById('nextGene').addEventListener('click', function () {
+      document.getElementById('nextGene').addEventListener('click', async function () {
+        if (geneArray.length === 0) {
+          alert('Load at least one table to navigate genes.');
+          return;
+        }
         let currentGene = document.getElementById('geneInput').value.trim();
         let currentIndex = geneArray.indexOf(currentGene);
         if (currentIndex === -1 || currentIndex === geneArray.length - 1) {
@@ -2320,9 +2437,13 @@
           currentIndex++;
         }
         document.getElementById('geneInput').value = geneArray[currentIndex];
-        plotGene(geneArray[currentIndex]);
+        await plotGene(geneArray[currentIndex]);
       });
-      document.getElementById('prevGene').addEventListener('click', function () {
+      document.getElementById('prevGene').addEventListener('click', async function () {
+        if (geneArray.length === 0) {
+          alert('Load at least one table to navigate genes.');
+          return;
+        }
         let currentGene = document.getElementById('geneInput').value.trim();
         let currentIndex = geneArray.indexOf(currentGene);
         if (currentIndex === -1 || currentIndex === 0) {
@@ -2331,13 +2452,13 @@
           currentIndex--;
         }
         document.getElementById('geneInput').value = geneArray[currentIndex];
-        plotGene(geneArray[currentIndex]);
+        await plotGene(geneArray[currentIndex]);
       });
       /* -------------------- End of Viewer and Pairs Code -------------------- */
       Promise.all([loadGFFData(), loadArCOGData(), loadSulfoCogData(), loadArCOGNamesData()]).then(() => {
         arcog_buildGlobalMapping();
       });
-      preloadTabFiles();
+      initializeTabManifest();
       loadPairsData();
 
       const motifSections = [1, 2, 3, 4];
