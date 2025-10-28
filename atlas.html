@@ -155,6 +155,28 @@
       border: 1px solid #fff;
     }
 
+    .chart-info-row {
+      display: flex;
+      justify-content: flex-end;
+      margin: 10px 0;
+      gap: 10px;
+    }
+
+    .info-button {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 18px;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .info-button:focus {
+      outline: 2px solid #80bfff;
+      outline-offset: 2px;
+    }
+
     /* Data Tables styling */
     #tableList {
       margin-bottom: 20px;
@@ -679,6 +701,32 @@
       cursor: pointer;
     }
 
+    .condition-group {
+      margin-bottom: 20px;
+    }
+
+    .condition-group h3 {
+      margin: 0 0 8px 0;
+      color: #222;
+    }
+
+    .condition-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .condition-list li {
+      margin-bottom: 6px;
+      line-height: 1.4;
+      color: #222;
+    }
+
+    .condition-label {
+      font-weight: 600;
+      color: #111;
+    }
+
     /* Resources styling */
     #resourcesTab {
       max-width: 64%;
@@ -765,6 +813,9 @@
         <datalist id="geneList"></datalist>
       </div>
       <div style="text-align: center;"><button id="plotButton">Plot Gene Expression</button></div>
+      <div class="chart-info-row">
+        <button id="expressionInfoButton" type="button" class="info-button" title="Show condition descriptions" aria-label="Show condition descriptions" aria-haspopup="dialog" aria-controls="conditionInfoModal">?</button>
+      </div>
       <div id="chartCanvas"></div>
       <div id="legend">
         <div>
@@ -803,6 +854,9 @@
         <input type="text" id="geneInputPairs" list="geneOptionsPairs" placeholder="Enter gene or old locus tag">
         <datalist id="geneOptionsPairs"></datalist>
         <button id="nextGenePairs">Next Gene</button>
+      </div>
+      <div class="chart-info-row">
+        <button id="pairsInfoButton" type="button" class="info-button" title="Show condition descriptions" aria-label="Show condition descriptions" aria-haspopup="dialog" aria-controls="conditionInfoModal">?</button>
       </div>
       <div id="pairsChartCanvas"></div>
       <div id="pairsLegend" style="margin-top: 10px; display: flex; gap: 15px; justify-content: center;">
@@ -998,6 +1052,14 @@
 
 
 
+  <div id="conditionInfoModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="conditionInfoTitle" aria-hidden="true">
+    <div class="modal-content">
+      <span class="close" role="button" aria-label="Close condition descriptions" data-target="conditionInfoModal">&times;</span>
+      <h2 id="conditionInfoTitle">Condition key</h2>
+      <div id="conditionInfoContent"></div>
+    </div>
+  </div>
+
   <!-- Modal Popup for arCOG Legend Table -->
   <div id="modalHelp" class="modal">
     <div class="modal-content">
@@ -1033,6 +1095,169 @@
       let arcog_currentSortColumn = null;
       let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
       let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
+
+      const conditionInfoGroups = [
+        {
+          title: 'Heat shock time course',
+          entries: [
+            {
+              labels: ['t15-HS', 't15-Sacidocaldarius-HS'],
+              description: 'Heat shock sample collected 15 minutes after the temperature upshift.'
+            },
+            {
+              labels: ['t30-HS', 't30-Sacidocaldarius-HS'],
+              description: 'Heat shock sample collected 30 minutes after the temperature upshift.'
+            },
+            {
+              labels: ['t60-HS', 't60-Sacidocaldarius-HS'],
+              description: 'Heat shock sample collected 60 minutes after the temperature upshift.'
+            }
+          ]
+        },
+        {
+          title: 'Temperature and pH growth series',
+          entries: [
+            {
+              labels: ['65C_pH_1_6_log'],
+              description: 'Log-phase culture grown at 65°C and pH 1.6.'
+            },
+            {
+              labels: ['65C_pH_1_6_stat'],
+              description: 'Stationary-phase culture grown at 65°C and pH 1.6.'
+            },
+            {
+              labels: ['65C_pH_2_4_log'],
+              description: 'Log-phase culture grown at 65°C and pH 2.4.'
+            },
+            {
+              labels: ['65C_pH_2_4_stat'],
+              description: 'Stationary-phase culture grown at 65°C and pH 2.4.'
+            },
+            {
+              labels: ['65C_pH_3_5_log'],
+              description: 'Log-phase culture grown at 65°C and pH 3.5.'
+            },
+            {
+              labels: ['65C_pH_3_5_stat'],
+              description: 'Stationary-phase culture grown at 65°C and pH 3.5.'
+            },
+            {
+              labels: ['75C_pH_1_6_log'],
+              description: 'Log-phase culture grown at 75°C and pH 1.6.'
+            },
+            {
+              labels: ['75C_pH_1_6_stat'],
+              description: 'Stationary-phase culture grown at 75°C and pH 1.6.'
+            },
+            {
+              labels: ['75C_pH_2_4_stat'],
+              description: 'Stationary-phase culture grown at 75°C and pH 2.4.'
+            },
+            {
+              labels: ['75C_pH_3_5_log'],
+              description: 'Log-phase culture grown at 75°C and pH 3.5.'
+            },
+            {
+              labels: ['75C_pH_3_5_stat'],
+              description: 'Stationary-phase culture grown at 75°C and pH 3.5.'
+            },
+            {
+              labels: ['80C_pH_1_6_log'],
+              description: 'Log-phase culture grown at 80°C and pH 1.6.'
+            },
+            {
+              labels: ['80C_pH_1_6_stat'],
+              description: 'Stationary-phase culture grown at 80°C and pH 1.6.'
+            },
+            {
+              labels: ['80C_pH_2_4_log'],
+              description: 'Log-phase culture grown at 80°C and pH 2.4.'
+            },
+            {
+              labels: ['80C_pH_2_4_stat'],
+              description: 'Stationary-phase culture grown at 80°C and pH 2.4.'
+            },
+            {
+              labels: ['80C_pH_3_5_log'],
+              description: 'Log-phase culture grown at 80°C and pH 3.5.'
+            },
+            {
+              labels: ['80C_pH_3_5_stat'],
+              description: 'Stationary-phase culture grown at 80°C and pH 3.5.'
+            }
+          ]
+        },
+        {
+          title: 'Knockout strains',
+          entries: [
+            {
+              labels: ['RS0060KO_early'],
+              description: 'RS0060 knockout strain sampled at the early time point.'
+            },
+            {
+              labels: ['RS0060KO_late'],
+              description: 'RS0060 knockout strain sampled at the late time point.'
+            },
+            {
+              labels: ['RS0575KO_early'],
+              description: 'RS0575 knockout strain sampled at the early time point.'
+            },
+            {
+              labels: ['RS0575KO_late'],
+              description: 'RS0575 knockout strain sampled at the late time point.'
+            },
+            {
+              labels: ['RS0730KO_early'],
+              description: 'RS0730 knockout strain sampled at the early time point.'
+            },
+            {
+              labels: ['RS0730KO_late'],
+              description: 'RS0730 knockout strain sampled at the late time point.'
+            },
+            {
+              labels: ['RS2625KO_early'],
+              description: 'RS2625 knockout strain sampled at the early time point.'
+            },
+            {
+              labels: ['RS2625KO_late'],
+              description: 'RS2625 knockout strain sampled at the late time point.'
+            },
+            {
+              labels: ['dKO_early'],
+              description: 'Double knockout strain (dKO) sampled at the early time point.'
+            },
+            {
+              labels: ['dKO_late'],
+              description: 'Double knockout strain (dKO) sampled at the late time point.'
+            }
+          ]
+        },
+        {
+          title: 'Post-starvation recovery',
+          entries: [
+            {
+              labels: ['post-starvation-030min'],
+              description: 'Cells sampled 30 minutes after the starvation challenge.'
+            },
+            {
+              labels: ['post-starvation-060min'],
+              description: 'Cells sampled 60 minutes after the starvation challenge.'
+            },
+            {
+              labels: ['post-starvation-090min'],
+              description: 'Cells sampled 90 minutes after the starvation challenge.'
+            },
+            {
+              labels: ['post-starvation-120min'],
+              description: 'Cells sampled 120 minutes after the starvation challenge.'
+            },
+            {
+              labels: ['post-starvation-240min'],
+              description: 'Cells sampled 240 minutes after the starvation challenge.'
+            }
+          ]
+        }
+      ];
 
       /* -------------------- Data Loading Functions -------------------- */
       function loadGFFData() {
@@ -1598,6 +1823,103 @@
       if (initialTab) {
         activateTab(initialTab);
       }
+
+      const conditionInfoModal = document.getElementById('conditionInfoModal');
+      const conditionInfoContent = document.getElementById('conditionInfoContent');
+      let lastConditionInfoTrigger = null;
+
+      function renderConditionInfo() {
+        if (!conditionInfoContent) {
+          return;
+        }
+        conditionInfoContent.innerHTML = '';
+        conditionInfoGroups.forEach(group => {
+          const groupWrapper = document.createElement('div');
+          groupWrapper.className = 'condition-group';
+
+          const heading = document.createElement('h3');
+          heading.textContent = group.title;
+          groupWrapper.appendChild(heading);
+
+          const list = document.createElement('ul');
+          list.className = 'condition-list';
+
+          group.entries.forEach(entry => {
+            const listItem = document.createElement('li');
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'condition-label';
+            labelSpan.textContent = entry.labels.join(' / ');
+            listItem.appendChild(labelSpan);
+
+            const descriptionSpan = document.createElement('span');
+            descriptionSpan.textContent = ` – ${entry.description}`;
+            listItem.appendChild(descriptionSpan);
+
+            list.appendChild(listItem);
+          });
+
+          groupWrapper.appendChild(list);
+          conditionInfoContent.appendChild(groupWrapper);
+        });
+      }
+
+      function openConditionInfoModal(triggerEvent) {
+        if (!conditionInfoModal) {
+          return;
+        }
+        if (triggerEvent && triggerEvent.currentTarget) {
+          lastConditionInfoTrigger = triggerEvent.currentTarget;
+        }
+        renderConditionInfo();
+        conditionInfoModal.style.display = 'block';
+        conditionInfoModal.setAttribute('aria-hidden', 'false');
+        const closeButton = conditionInfoModal.querySelector('.close');
+        if (closeButton) {
+          closeButton.focus();
+        }
+      }
+
+      function hideConditionInfoModal() {
+        if (!conditionInfoModal) {
+          return;
+        }
+        conditionInfoModal.style.display = 'none';
+        conditionInfoModal.setAttribute('aria-hidden', 'true');
+        if (lastConditionInfoTrigger) {
+          lastConditionInfoTrigger.focus();
+          lastConditionInfoTrigger = null;
+        }
+      }
+
+      const conditionInfoButtons = [
+        document.getElementById('expressionInfoButton'),
+        document.getElementById('pairsInfoButton')
+      ];
+
+      conditionInfoButtons.forEach(button => {
+        if (button) {
+          button.addEventListener('click', openConditionInfoModal);
+        }
+      });
+
+      if (conditionInfoModal) {
+        const conditionCloseButton = conditionInfoModal.querySelector('.close');
+        if (conditionCloseButton) {
+          conditionCloseButton.addEventListener('click', hideConditionInfoModal);
+        }
+      }
+
+      window.addEventListener('click', event => {
+        if (conditionInfoModal && event.target === conditionInfoModal) {
+          hideConditionInfoModal();
+        }
+      });
+
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && conditionInfoModal && conditionInfoModal.style.display === 'block') {
+          hideConditionInfoModal();
+        }
+      });
 
 
       /* -------------------- asRNA/mRNA Pairs Tab: load pairs data -------------------- */
@@ -2247,7 +2569,7 @@
 
       const modal = document.getElementById('modalHelp');
       const helpBtn = document.getElementById('helpButton');
-      const closeSpan = document.querySelector('.modal .close');
+      const closeSpan = document.querySelector('#modalHelp .close');
       const saveBtn = document.getElementById('saveTable');
       const legendContainer = document.getElementById('legendTableContainer');
 
