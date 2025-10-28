@@ -1030,41 +1030,165 @@
       let geneOldLocusMap = new Map();
       let pairsGeneLookupMap = new Map();
       let pairsGeneOldLocusMap = new Map();
+      let geneListPairs = [];
+      let currentGeneIndexPairs = 0;
+
+      function normalizeGeneKey(value) {
+        if (value === undefined || value === null) {
+          return "";
+        }
+        return String(value).trim().toUpperCase();
+      }
+
+      async function safeFetchText(url, { errorElementId = null, errorMessage = null, transform = null } = {}) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          let text = await response.text();
+          if (typeof transform === 'function') {
+            text = transform(text);
+          }
+          return text;
+        } catch (error) {
+          console.error(`Error fetching ${url}:`, error);
+          if (errorElementId) {
+            const element = document.getElementById(errorElementId);
+            if (element) {
+              element.textContent = errorMessage || `Failed to load ${url}.`;
+            }
+          }
+          return null;
+        }
+      }
+
+      async function safeFetchJSON(url, options = {}) {
+        const text = await safeFetchText(url, options);
+        if (text === null) {
+          return null;
+        }
+        try {
+          return JSON.parse(text);
+        } catch (error) {
+          console.error(`Error parsing JSON from ${url}:`, error);
+          if (options.errorElementId) {
+            const element = document.getElementById(options.errorElementId);
+            if (element) {
+              element.textContent = options.errorMessage || `Failed to parse ${url}.`;
+            }
+          }
+          return null;
+        }
+      }
+
+      async function safeFetchPapa(url, parseConfig = {}, options = {}) {
+        const text = await safeFetchText(url, options);
+        if (text === null) {
+          return null;
+        }
+        const config = { skipEmptyLines: true, ...parseConfig };
+        const parsed = Papa.parse(text, config);
+        return parsed.data;
+      }
+
+      function populateDatalistOptions(datalistId, values, labelResolver = null) {
+        const datalist = document.getElementById(datalistId);
+        if (!datalist) {
+          return;
+        }
+        datalist.innerHTML = "";
+        values.forEach(value => {
+          const option = document.createElement('option');
+          option.value = value;
+          if (typeof labelResolver === 'function') {
+            const label = labelResolver(value);
+            if (label && label !== value) {
+              option.label = label;
+            }
+          }
+          datalist.appendChild(option);
+        });
+      }
+
+      function syncPairsGeneLookups() {
+        pairsGeneLookupMap = new Map();
+        pairsGeneOldLocusMap = new Map();
+
+        if (!Array.isArray(geneListPairs) || geneListPairs.length === 0) {
+          const geneInputPairs = document.getElementById('geneInputPairs');
+          if (geneInputPairs) {
+            geneInputPairs.value = '';
+          }
+          currentGeneIndexPairs = 0;
+          populateDatalistOptions('geneOptionsPairs', []);
+          return;
+        }
+
+        geneListPairs.forEach(gene => {
+          if (gene) {
+            pairsGeneLookupMap.set(normalizeGeneKey(gene), gene);
+          }
+          const oldTag = geneOldLocusMap.get(gene);
+          if (oldTag) {
+            pairsGeneOldLocusMap.set(gene, oldTag);
+            pairsGeneLookupMap.set(normalizeGeneKey(oldTag), gene);
+          }
+        });
+
+        populateDatalistOptions('geneOptionsPairs', geneListPairs, gene => {
+          const oldTag = pairsGeneOldLocusMap.get(gene);
+          return oldTag ? `${gene} (${oldTag})` : null;
+        });
+
+        const geneInputPairs = document.getElementById('geneInputPairs');
+        if (geneInputPairs) {
+          const normalizedCurrent = normalizeGeneKey(geneInputPairs.value);
+          if (normalizedCurrent && pairsGeneLookupMap.has(normalizedCurrent)) {
+            const resolvedGene = pairsGeneLookupMap.get(normalizedCurrent);
+            currentGeneIndexPairs = Math.max(0, geneListPairs.indexOf(resolvedGene));
+          } else {
+            geneInputPairs.value = geneListPairs[0];
+            currentGeneIndexPairs = 0;
+          }
+        } else {
+          currentGeneIndexPairs = 0;
+        }
+      }
       let arcog_currentSortColumn = null;
       let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
       let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
 
       /* -------------------- Data Loading Functions -------------------- */
-      function loadGFFData() {
-        return fetch('arcogs/Sacidocaldarius-2024-curated.txt')
-          .then(response => response.text())
-          .then(text => {
-            const lines = text.split("\n");
-            gffData = [];
-            lines.forEach(line => {
-              if (line.startsWith("#") || line.trim() === "") return;
-              const cols = line.split("\t");
-              if (cols[2] && cols[2].toLowerCase() === "gene") {
-                const attrText = cols[8];
-                const attributes = {};
-                attrText.split(";").forEach(pair => {
-                  const [key, value] = pair.split("=");
-                  if (key && value) {
-                    attributes[key.trim()] = value.trim();
-                  }
-                });
-                gffData.push({
-                  locus_tag: attributes.locus_tag || "",
-                  name: attributes.Name || "",
-                  old_locus_tag: attributes.old_locus_tag || ""
-                });
+      async function loadGFFData() {
+        const text = await safeFetchText('arcogs/Sacidocaldarius-2024-curated.txt', {
+          errorElementId: 'arcog_searchMessage',
+          errorMessage: 'Failed to load GFF data.'
+        });
+        if (text === null) {
+          return;
+        }
+        const lines = text.split("\n");
+        gffData = [];
+        lines.forEach(line => {
+          if (line.startsWith("#") || line.trim() === "") return;
+          const cols = line.split("\t");
+          if (cols[2] && cols[2].toLowerCase() === "gene") {
+            const attrText = cols[8];
+            const attributes = {};
+            attrText.split(";").forEach(pair => {
+              const [key, value] = pair.split("=");
+              if (key && value) {
+                attributes[key.trim()] = value.trim();
               }
             });
-          })
-          .catch(error => {
-            console.error("Error loading GFF data:", error);
-            document.getElementById('arcog_searchMessage').textContent = "Failed to load GFF data.";
-          });
+            gffData.push({
+              locus_tag: attributes.locus_tag || "",
+              name: attributes.Name || "",
+              old_locus_tag: attributes.old_locus_tag || ""
+            });
+          }
+        });
       }
       document.getElementById("geneInput").addEventListener("click", function () {
         this.select();
@@ -1086,55 +1210,57 @@
       document.getElementById('toTopButton').addEventListener('click', function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
-      function loadArCOGData() {
-        return fetch('arcogs/S_acidocaldarius_arCOGs.txt')
-          .then(response => response.text())
-          .then(text => {
-            const results = Papa.parse(text, { delimiter: " ", header: false, skipEmptyLines: true });
-            arCOGData = results.data.map(row => ({
-              gene: row[0],
-              sulfoCode: row[6]
-            }));
-          })
-          .catch(error => {
-            console.error("Error loading arCOG mapping data:", error);
-            document.getElementById('arcog_searchMessage').textContent = "Failed to load arCOG mapping data.";
-          });
+      async function loadArCOGData() {
+        const data = await safeFetchPapa('arcogs/S_acidocaldarius_arCOGs.txt', {
+          delimiter: " ",
+          header: false
+        }, {
+          errorElementId: 'arcog_searchMessage',
+          errorMessage: 'Failed to load arCOG mapping data.'
+        });
+        if (!Array.isArray(data)) {
+          return;
+        }
+        arCOGData = data
+          .filter(row => Array.isArray(row) && row.length > 6)
+          .map(row => ({
+            gene: row[0],
+            sulfoCode: row[6]
+          }));
       }
-      function loadSulfoCogData() {
-        return fetch('arcogs/Sulfo_cog2ar.txt')
-          .then(response => response.text())
-          .then(text => {
-            const results = Papa.parse(text, { delimiter: " ", header: false, skipEmptyLines: true });
-            sulfoCogData = results.data.map(row => ({
-              sulfoCode: row[0],
-              arCOGCode: row[4]
-            }));
-          })
-          .catch(error => {
-            console.error("Error loading Sulfo_cog2ar data:", error);
-            document.getElementById('arcog_searchMessage').textContent = "Failed to load Sulfo_cog2ar data.";
-          });
+      async function loadSulfoCogData() {
+        const data = await safeFetchPapa('arcogs/Sulfo_cog2ar.txt', {
+          delimiter: " ",
+          header: false
+        }, {
+          errorElementId: 'arcog_searchMessage',
+          errorMessage: 'Failed to load Sulfo_cog2ar data.'
+        });
+        if (!Array.isArray(data)) {
+          return;
+        }
+        sulfoCogData = data
+          .filter(row => Array.isArray(row) && row.length > 4)
+          .map(row => ({
+            sulfoCode: row[0],
+            arCOGCode: row[4]
+          }));
       }
-      function loadArCOGNamesData() {
-        return fetch('arcogs/arCOG_names_220807.txt')
-          .then(response => response.text())
-          .then(text => {
-            text = text.replace(/^\uFEFF/, '');
-            const results = Papa.parse(text, {
-              delimiter: "\t",
-              header: true,
-              skipEmptyLines: true,
-              trim: true,
-              trimHeaders: true
-            });
-            console.log("Detected headers:", results.meta.fields);
-            arCOGNamesData = results.data;
-          })
-          .catch(error => {
-            console.error("Error loading arCOG names data:", error);
-            document.getElementById('arcog_searchMessage').textContent = "Failed to load arCOG names data.";
-          });
+      async function loadArCOGNamesData() {
+        const data = await safeFetchPapa('arcogs/arCOG_names_220807.txt', {
+          delimiter: "\t",
+          header: true,
+          trim: true,
+          trimHeaders: true
+        }, {
+          errorElementId: 'arcog_searchMessage',
+          errorMessage: 'Failed to load arCOG names data.',
+          transform: text => text.replace(/^\uFEFF/, '')
+        });
+        if (!Array.isArray(data)) {
+          return;
+        }
+        arCOGNamesData = data;
       }
       function loadDESeq2File(file) {
         return new Promise((resolve, reject) => {
@@ -1160,37 +1286,42 @@
       function shortenFilename(filename) {
         return filename.replace(/deseq-tabs\/DESeq2_/, "").replace(/deseq-tabs\/DESeq2-/, "").replace(/\.tab$/, "");
       }
-      function preloadTabFiles() {
-        fetch('data/tabFiles.json')
-          .then(response => response.json())
-          .then(fileList => {
-            dataFiles = [];
-            const promises = fileList.map(fileName => {
-              return fetch(fileName)
-                .then(response => response.text())
-                .then(text => {
-                  let delimiter = text.indexOf(",") > -1 ? "," : "\t";
-                  const parsed = Papa.parse(text, { header: true, delimiter: delimiter, dynamicTyping: true });
-                  if (parsed.data.length === 0) return;
-                  let headers = Object.keys(parsed.data[0]);
-                  let geneColumn = headers.find(h => h.toLowerCase() === "gene") || headers[0];
-                  let oldLocusColumn = headers.find(h => h && h.toLowerCase().trim() === "old_locus_tag");
-                  dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn, oldLocusColumn: oldLocusColumn });
-                });
-            });
-            Promise.all(promises)
-              .then(() => {
-                updateGeneList();
-                updateTableList();
-                console.log("All .tab files preloaded successfully!");
-              })
-              .catch(error => {
-                console.error("Error preloading .tab files:", error);
-              });
-          })
-          .catch(error => {
-            console.error("Error fetching tab files list:", error);
+      async function preloadTabFiles() {
+        const fileList = await safeFetchJSON('data/tabFiles.json');
+        if (!Array.isArray(fileList)) {
+          return;
+        }
+        dataFiles = [];
+        const promises = fileList.map(async fileName => {
+          const text = await safeFetchText(fileName);
+          if (text === null) {
+            return;
+          }
+          const delimiter = text.indexOf(",") > -1 ? "," : "\t";
+          const parsed = Papa.parse(text, {
+            header: true,
+            delimiter: delimiter,
+            dynamicTyping: true,
+            skipEmptyLines: true
           });
+          if (!parsed.data || parsed.data.length === 0) {
+            return;
+          }
+          const headers = (parsed.meta && parsed.meta.fields && parsed.meta.fields.length)
+            ? parsed.meta.fields
+            : Object.keys(parsed.data[0]);
+          const geneColumn = headers.find(h => h && h.toLowerCase() === "gene") || headers[0];
+          const oldLocusColumn = headers.find(h => h && h.toLowerCase().trim() === "old_locus_tag");
+          dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn, oldLocusColumn: oldLocusColumn });
+        });
+        try {
+          await Promise.all(promises);
+          updateGeneList();
+          updateTableList();
+          console.log("All .tab files preloaded successfully!");
+        } catch (error) {
+          console.error("Error preloading .tab files:", error);
+        }
       }
       function arcog_populateAutocomplete() {
         const datalist = document.getElementById('arcog_geneList');
@@ -1585,27 +1716,37 @@
 
 
       /* -------------------- asRNA/mRNA Pairs Tab: load pairs data -------------------- */
-      function loadPairsData() {
+      async function loadPairsData() {
         const uploadStatusPairs = document.getElementById('uploadStatusPairs');
-        Promise.all([
-          fetch('data/correlation.txt').then(response => response.text()),
-          fetch('data/expression.txt').then(response => response.text())
-        ]).then(([corrText, exprText]) => {
-          Papa.parse(corrText, {
-            header: true, delimiter: "\t", dynamicTyping: true, complete: function (results) {
-              window.correlationDataPairs = results.data.filter(row => row.Gene);
-              checkPairsReady();
-            }
-          });
-          Papa.parse(exprText, {
-            header: true, delimiter: "\t", dynamicTyping: true, complete: function (results) {
-              window.expressionDataPairs = results.data.filter(row => row.Gene);
-              checkPairsReady();
-            }
-          });
-        }).catch(error => {
-          uploadStatusPairs.textContent = "Error loading data: " + error;
-        });
+        const [corrData, exprData] = await Promise.all([
+          safeFetchPapa('data/correlation.txt', {
+            header: true,
+            delimiter: "\t",
+            dynamicTyping: true
+          }, {
+            errorElementId: 'uploadStatusPairs',
+            errorMessage: 'Error loading correlation data.'
+          }),
+          safeFetchPapa('data/expression.txt', {
+            header: true,
+            delimiter: "\t",
+            dynamicTyping: true
+          }, {
+            errorElementId: 'uploadStatusPairs',
+            errorMessage: 'Error loading expression data.'
+          })
+        ]);
+
+        if (!Array.isArray(corrData) || !Array.isArray(exprData)) {
+          return;
+        }
+
+        window.correlationDataPairs = corrData.filter(row => row.Gene);
+        window.expressionDataPairs = exprData.filter(row => row.Gene);
+        if (uploadStatusPairs) {
+          uploadStatusPairs.textContent = '';
+        }
+        checkPairsReady();
       }
 
       function checkPairsReady() {
@@ -1618,64 +1759,16 @@
         }
       }
 
-      function refreshPairsOldLocusMappings() {
-        if (!Array.isArray(geneListPairs) || geneListPairs.length === 0) {
-          return;
-        }
-        const datalist = document.getElementById('geneOptionsPairs');
-        if (!datalist) {
-          return;
-        }
-        const optionMap = new Map();
-        Array.from(datalist.options || []).forEach(option => {
-          optionMap.set(option.value, option);
-        });
-        geneListPairs.forEach(gene => {
-          const oldTag = geneOldLocusMap.get(gene);
-          if (!oldTag) {
-            return;
-          }
-          pairsGeneOldLocusMap.set(gene, oldTag);
-          const normalizedOld = normalizeGeneKey(oldTag);
-          if (!pairsGeneLookupMap.has(normalizedOld)) {
-            pairsGeneLookupMap.set(normalizedOld, gene);
-          }
-          const option = optionMap.get(gene);
-          if (option) {
-            option.label = `${gene} (${oldTag})`;
-          }
-        });
-      }
-
-      let geneListPairs = [];
-      let currentGeneIndexPairs = 0;
       function buildGeneListPairs() {
-        const genesFromExpr = window.expressionDataPairs.map(d => d.Gene);
-        const genesFromCorr = window.correlationDataPairs.map(d => d.Gene);
-        const allGenes = [...genesFromExpr, ...genesFromCorr];
+        const genesFromExpr = Array.isArray(window.expressionDataPairs)
+          ? window.expressionDataPairs.map(d => d.Gene)
+          : [];
+        const genesFromCorr = Array.isArray(window.correlationDataPairs)
+          ? window.correlationDataPairs.map(d => d.Gene)
+          : [];
+        const allGenes = [...genesFromExpr, ...genesFromCorr].filter(Boolean);
         geneListPairs = Array.from(new Set(allGenes)).sort();
-        pairsGeneLookupMap = new Map();
-        pairsGeneOldLocusMap = new Map();
-        const geneInputPairs = document.getElementById('geneInputPairs');
-        const datalist = document.getElementById('geneOptionsPairs');
-        if (datalist) {
-          datalist.innerHTML = "";
-        }
-        geneListPairs.forEach(gene => {
-          const normalizedGene = normalizeGeneKey(gene);
-          if (!pairsGeneLookupMap.has(normalizedGene)) {
-            pairsGeneLookupMap.set(normalizedGene, gene);
-          }
-          if (datalist) {
-            const option = document.createElement('option');
-            option.value = gene;
-            datalist.appendChild(option);
-          }
-        });
-        refreshPairsOldLocusMappings();
-        if (geneInputPairs && geneListPairs.length > 0) {
-          geneInputPairs.value = geneListPairs[0];
-        }
+        syncPairsGeneLookups();
       }
 
       function setupGeneNavigationPairs() {
@@ -1911,58 +2004,52 @@
         dataFiles.forEach(fileObj => {
           fileObj.data.forEach(row => {
             const geneVal = row[fileObj.geneColumn];
-            if (geneVal !== undefined && geneVal !== null && geneVal !== "") {
-              geneSet.add(geneVal);
-              const normalizedGene = normalizeGeneKey(geneVal);
-              if (!geneLookupMap.has(normalizedGene)) {
-                geneLookupMap.set(normalizedGene, geneVal);
+            if (geneVal === undefined || geneVal === null || geneVal === "") {
+              return;
+            }
+            geneSet.add(geneVal);
+            const normalizedGene = normalizeGeneKey(geneVal);
+            if (!geneLookupMap.has(normalizedGene)) {
+              geneLookupMap.set(normalizedGene, geneVal);
+            }
+            let oldTag = null;
+            if (fileObj.oldLocusColumn) {
+              const candidate = row[fileObj.oldLocusColumn];
+              if (candidate !== undefined && candidate !== null) {
+                const trimmed = String(candidate).trim();
+                if (trimmed !== "") {
+                  oldTag = trimmed;
+                }
               }
-              let oldTag = null;
-              if (fileObj.oldLocusColumn) {
-                const candidate = row[fileObj.oldLocusColumn];
+            } else {
+              const fallbackKey = Object.keys(row).find(k => k && k.toLowerCase().trim() === "old_locus_tag");
+              if (fallbackKey) {
+                const candidate = row[fallbackKey];
                 if (candidate !== undefined && candidate !== null) {
                   const trimmed = String(candidate).trim();
                   if (trimmed !== "") {
                     oldTag = trimmed;
                   }
                 }
-              } else {
-                const fallbackKey = Object.keys(row).find(k => k && k.toLowerCase().trim() === "old_locus_tag");
-                if (fallbackKey) {
-                  const candidate = row[fallbackKey];
-                  if (candidate !== undefined && candidate !== null) {
-                    const trimmed = String(candidate).trim();
-                    if (trimmed !== "") {
-                      oldTag = trimmed;
-                    }
-                  }
-                }
               }
-              if (oldTag) {
-                if (!geneOldLocusMap.has(geneVal)) {
-                  geneOldLocusMap.set(geneVal, oldTag);
-                }
-                const normalizedOld = normalizeGeneKey(oldTag);
-                if (!geneLookupMap.has(normalizedOld)) {
-                  geneLookupMap.set(normalizedOld, geneVal);
-                }
+            }
+            if (oldTag) {
+              if (!geneOldLocusMap.has(geneVal)) {
+                geneOldLocusMap.set(geneVal, oldTag);
+              }
+              const normalizedOld = normalizeGeneKey(oldTag);
+              if (!geneLookupMap.has(normalizedOld)) {
+                geneLookupMap.set(normalizedOld, geneVal);
               }
             }
           });
         });
         geneArray = Array.from(geneSet).sort();
-        const datalist = document.getElementById('geneList');
-        datalist.innerHTML = "";
-        geneArray.forEach(gene => {
-          const option = document.createElement('option');
-          option.value = gene;
+        populateDatalistOptions('geneList', geneArray, gene => {
           const oldTag = geneOldLocusMap.get(gene);
-          if (oldTag) {
-            option.label = `${gene} (${oldTag})`;
-          }
-          datalist.appendChild(option);
+          return oldTag ? `${gene} (${oldTag})` : null;
         });
-        refreshPairsOldLocusMappings();
+        syncPairsGeneLookups();
       }
       function updateTableList() {
         const tableListDiv = document.getElementById('tableList');
@@ -2091,12 +2178,6 @@
           container: tableDisplayDiv,
           data: fileObj.data
         });
-      }
-      function normalizeGeneKey(value) {
-        if (value === undefined || value === null) {
-          return "";
-        }
-        return String(value).trim().toUpperCase();
       }
 
       function resolveGeneIdentifier(inputIdentifier) {
@@ -2272,46 +2353,47 @@
       const legendContainer = document.getElementById('legendTableContainer');
 
       if (modal && helpBtn && closeSpan && legendContainer) {
-        const loadLegendTable = () => {
+        const loadLegendTable = async () => {
           if (legendContainer.dataset.loaded) {
-            return Promise.resolve();
+            return;
           }
 
-          return fetch('arcogs/funclass.tab.txt')
-            .then(response => response.text())
-            .then(text => {
-              text = text.replace(/^\uFEFF/, '');
-              const lines = text.split('\n').filter(line => line.trim() !== "");
-              if (lines.length === 0) {
-                legendContainer.innerHTML = "<p>No data available.</p>";
-                return;
-              }
+          const text = await safeFetchText('arcogs/funclass.tab.txt', {
+            errorElementId: null,
+            transform: value => value.replace(/^\uFEFF/, '')
+          });
 
-              let tableHTML = '<table border="1" cellspacing="0" cellpadding="5" style="width: 100%;">';
-              const headers = lines[0].split('\t');
-              tableHTML += '<thead><tr>';
-              headers.forEach(header => {
-                tableHTML += '<th>' + header.trim() + '</th>';
-              });
-              tableHTML += '</tr></thead>';
-              tableHTML += '<tbody>';
-              for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split('\t');
-                if (cols.length < headers.length) continue;
-                tableHTML += '<tr>';
-                cols.forEach(col => {
-                  tableHTML += '<td>' + col.trim() + '</td>';
-                });
-                tableHTML += '</tr>';
-              }
-              tableHTML += '</tbody></table>';
-              legendContainer.innerHTML = tableHTML;
-              legendContainer.dataset.loaded = true;
-            })
-            .catch(error => {
-              console.error("Error loading legend table:", error);
-              legendContainer.innerHTML = "<p>Error loading legend table.</p>";
+          if (text === null) {
+            legendContainer.innerHTML = "<p>Error loading legend table.</p>";
+            return;
+          }
+
+          const lines = text.split('\n').filter(line => line.trim() !== "");
+          if (lines.length === 0) {
+            legendContainer.innerHTML = "<p>No data available.</p>";
+            return;
+          }
+
+          let tableHTML = '<table border="1" cellspacing="0" cellpadding="5" style="width: 100%;">';
+          const headers = lines[0].split('\t');
+          tableHTML += '<thead><tr>';
+          headers.forEach(header => {
+            tableHTML += '<th>' + header.trim() + '</th>';
+          });
+          tableHTML += '</tr></thead>';
+          tableHTML += '<tbody>';
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split('\t');
+            if (cols.length < headers.length) continue;
+            tableHTML += '<tr>';
+            cols.forEach(col => {
+              tableHTML += '<td>' + col.trim() + '</td>';
             });
+            tableHTML += '</tr>';
+          }
+          tableHTML += '</tbody></table>';
+          legendContainer.innerHTML = tableHTML;
+          legendContainer.dataset.loaded = true;
         };
 
         helpBtn.addEventListener('click', () => {
@@ -2339,26 +2421,25 @@
     });
 
     async function loadFasta(file, selectId, displayId) {
-      try {
-        const response = await fetch(file);
-        const text = await response.text();
-        const sequences = parseFasta(text);
-        const select = document.getElementById(selectId);
-        for (let header in sequences) {
-          const option = document.createElement('option');
-          option.value = header;
-          option.textContent = header;
-          select.appendChild(option);
-        }
-        if (select.value) {
-          document.getElementById(displayId).textContent = sequences[select.value];
-        }
-        select.addEventListener('change', function () {
-          document.getElementById(displayId).textContent = sequences[this.value];
-        });
-      } catch (error) {
-        console.error('Error loading FASTA file:', file, error);
+      const text = await safeFetchText(file, { errorElementId: null });
+      if (text === null) {
+        console.error('Error loading FASTA file:', file);
+        return;
       }
+      const sequences = parseFasta(text);
+      const select = document.getElementById(selectId);
+      for (let header in sequences) {
+        const option = document.createElement('option');
+        option.value = header;
+        option.textContent = header;
+        select.appendChild(option);
+      }
+      if (select.value) {
+        document.getElementById(displayId).textContent = sequences[select.value];
+      }
+      select.addEventListener('change', function () {
+        document.getElementById(displayId).textContent = sequences[this.value];
+      });
     }
 
     function parseFasta(text) {
