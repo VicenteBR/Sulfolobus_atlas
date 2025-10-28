@@ -80,6 +80,7 @@
       <div class="chart-info-row">
         <button id="pairsInfoButton" type="button" class="info-button" title="Show condition descriptions" aria-label="Show condition descriptions" aria-haspopup="dialog" aria-controls="conditionInfoModal">?</button>
       </div>
+      <h2 id="pairsChartTitle" class="chart-heading" aria-live="polite"></h2>
       <div id="pairsChartCanvas"></div>
       <div id="pairsLegend" class="pairs-legend">
         <div class="legend-entry">
@@ -1224,8 +1225,10 @@
 
       function updatePairsExpressionChart(gene) {
         const geneRows = window.expressionDataPairs.filter(row => row.Gene === gene);
+        const pairsHeadingElement = document.getElementById('pairsChartTitle');
         if (geneRows.length === 0) {
           if (pairsChart) { pairsChart.destroy(); }
+          if (pairsHeadingElement) { pairsHeadingElement.textContent = ''; }
           return;
         }
         let experiments = Array.from(new Set(geneRows.map(row => row.Experiment)));
@@ -1280,7 +1283,21 @@
 
         if (pairsChart) { pairsChart.destroy(); }
 
-        const titleText = resolvedOldLocusTag ? `${gene} (${resolvedOldLocusTag})` : gene;
+        const geneInfoLink = `https://www.ncbi.nlm.nih.gov/gene/?term=${encodeURIComponent(gene)}`;
+        if (pairsHeadingElement) {
+          pairsHeadingElement.textContent = '';
+          pairsHeadingElement.appendChild(document.createTextNode('asRNA/mRNA Expression for '));
+          const link = document.createElement('a');
+          link.href = geneInfoLink;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.className = 'chart-title-link';
+          link.textContent = gene;
+          pairsHeadingElement.appendChild(link);
+          if (resolvedOldLocusTag) {
+            pairsHeadingElement.appendChild(document.createTextNode(` (${resolvedOldLocusTag})`));
+          }
+        }
 
         pairsChart = new ApexCharts(document.querySelector("#pairsChartCanvas"), {
           chart: { type: 'bar', animations: { easing: 'easeOutQuart', speed: 800 } },
@@ -1314,7 +1331,7 @@
             </div>`;
             }
           },
-          title: { text: titleText, style: { fontSize: '20px', color: '#e0e0e0' } },
+          title: { text: '' },
           plotOptions: { bar: { borderRadius: 4, horizontal: false } },
           dataLabels: { enabled: false },
           legend: { show: false }
