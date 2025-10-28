@@ -1274,10 +1274,6 @@
       }
       function arcog_displayResults(results) {
         const table = document.getElementById('arcog_resultsTable');
-        const headerRow = document.getElementById('arcog_tableHeader');
-        const tableBody = document.getElementById('arcog_tableBody');
-        headerRow.innerHTML = ""; // Clear existing headers
-        tableBody.innerHTML = "";
 
         if (results.length === 0) {
           document.getElementById('arcog_searchMessage').textContent = "No mapping results found.";
@@ -1286,31 +1282,19 @@
         }
 
         const columns = Object.keys(results[0]);
-        columns.forEach((col, colIndex) => { // Get column index
-          const th = document.createElement('th');
-          th.textContent = col;
-          th.dataset.columnIndex = colIndex; // Store column index
-          th.dataset.columnKey = col;      // Store column key (original key from data)
-
-          const arrowSpan = document.createElement('span');
-          arrowSpan.classList.add('sort-arrow');
-          th.appendChild(arrowSpan);
-
-          th.addEventListener('click', () => arcog_sortTableByColumn(th, results)); // Pass results to sort
-          headerRow.appendChild(th);
+        renderDataTable({
+          table,
+          data: results,
+          headers: columns,
+          headerCellCustomizer: (th, columnKey, columnIndex) => {
+            th.dataset.columnIndex = columnIndex;
+            th.dataset.columnKey = columnKey;
+            const arrowSpan = document.createElement('span');
+            arrowSpan.classList.add('sort-arrow');
+            th.appendChild(arrowSpan);
+            th.addEventListener('click', () => arcog_sortTableByColumn(th, results));
+          }
         });
-
-        // Populate table body (existing code)
-        results.forEach(row => {
-          const tr = document.createElement('tr');
-          columns.forEach(col => {
-            const td = document.createElement('td');
-            td.textContent = row[col];
-            tr.appendChild(td);
-          });
-          tableBody.appendChild(tr);
-        });
-
         table.style.display = "table";
       }
       function arcog_filterByAnnotationCode() {
@@ -2025,6 +2009,62 @@
         });
         tableListDiv.appendChild(tbl);
       }
+      function renderDataTable({ container = null, table = null, data = [], headers = null, headerCellCustomizer = null, cellCustomizer = null }) {
+        if (!Array.isArray(data)) {
+          data = [];
+        }
+        const resolvedHeaders = headers && headers.length
+          ? headers
+          : (data.length > 0 ? Object.keys(data[0]) : []);
+
+        const targetTable = table || document.createElement('table');
+        let thead = targetTable.querySelector('thead');
+        if (!thead) {
+          thead = document.createElement('thead');
+          targetTable.appendChild(thead);
+        }
+
+        let tbody = targetTable.querySelector('tbody');
+        if (!tbody) {
+          tbody = document.createElement('tbody');
+          targetTable.appendChild(tbody);
+        }
+
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        const headerRow = document.createElement('tr');
+        resolvedHeaders.forEach((header, headerIndex) => {
+          const th = document.createElement('th');
+          th.textContent = header;
+          if (typeof headerCellCustomizer === 'function') {
+            headerCellCustomizer(th, header, headerIndex);
+          }
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+
+        data.forEach((row, rowIndex) => {
+          const tr = document.createElement('tr');
+          resolvedHeaders.forEach((header, columnIndex) => {
+            const td = document.createElement('td');
+            td.textContent = row ? row[header] : '';
+            if (typeof cellCustomizer === 'function') {
+              cellCustomizer(td, row, header, rowIndex, columnIndex);
+            }
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+
+        if (container) {
+          container.innerHTML = '';
+          container.appendChild(targetTable);
+        }
+
+        return targetTable;
+      }
+
       function removeFile(filename) {
         const tableDisplayDiv = document.getElementById('tableDisplay');
         const index = dataFiles.findIndex(f => f.filename === filename);
@@ -2047,30 +2087,10 @@
           tableDisplayDiv.innerHTML = "<p>No data in this file.</p>";
           return;
         }
-        const tbl = document.createElement('table');
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        const headers = Object.keys(fileObj.data[0]);
-        headers.forEach(header => {
-          const th = document.createElement('th');
-          th.textContent = header;
-          headerRow.appendChild(th);
+        renderDataTable({
+          container: tableDisplayDiv,
+          data: fileObj.data
         });
-        thead.appendChild(headerRow);
-        tbl.appendChild(thead);
-        const tbody = document.createElement('tbody');
-        fileObj.data.forEach(row => {
-          const tr = document.createElement('tr');
-          headers.forEach(header => {
-            const td = document.createElement('td');
-            td.textContent = row[header];
-            tr.appendChild(td);
-          });
-          tbody.appendChild(tr);
-        });
-        tbl.appendChild(tbody);
-        tableDisplayDiv.innerHTML = "";
-        tableDisplayDiv.appendChild(tbl);
       }
       function normalizeGeneKey(value) {
         if (value === undefined || value === null) {
