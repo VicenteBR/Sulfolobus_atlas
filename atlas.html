@@ -1996,18 +1996,18 @@
       async function handleExpressionGeneInput(rawValue) {
         const trimmedValue = rawValue ? rawValue.trim() : "";
         if (trimmedValue === "") {
-          return false;
+          return;
         }
         try {
           await preloadTabFiles();
         } catch (error) {
           alert('Failed to load expression tables. Please try again.');
-          return false;
+          return;
         }
-        return plotGene(trimmedValue);
+        await plotGene(trimmedValue);
       }
 
-      function initializeDefaultExpressionGene(retryCount = 0) {
+      function initializeDefaultExpressionGene() {
         if (hasPlottedDefaultExpressionGene) {
           return;
         }
@@ -2018,49 +2018,36 @@
         if (geneInputElement) {
           geneInputElement.value = DEFAULT_EXPRESSION_GENE;
         }
-
-        handleExpressionGeneInput(DEFAULT_EXPRESSION_GENE)
-          .then(success => {
-            if (success) {
-              hasPlottedDefaultExpressionGene = true;
-            } else if (retryCount < 5) {
-              setTimeout(() => initializeDefaultExpressionGene(retryCount + 1), 150);
-            }
-          })
-          .catch(() => {
-            if (retryCount < 5) {
-              setTimeout(() => initializeDefaultExpressionGene(retryCount + 1), 150);
-            }
-          });
+        hasPlottedDefaultExpressionGene = true;
+        handleExpressionGeneInput(DEFAULT_EXPRESSION_GENE).catch(() => {
+          hasPlottedDefaultExpressionGene = false;
+        });
       }
 
       async function plotGene(geneIdentifier) {
         const resolvedGene = resolveGeneIdentifier(geneIdentifier);
         if (!resolvedGene) {
           alert("Gene or old locus tag not found in the loaded tables.");
-          return false;
+          return;
         }
         const geneInputField = document.getElementById('geneInput');
         geneInputField.value = resolvedGene;
         const normalizedGene = normalizeGeneKey(resolvedGene);
         let resolvedOldLocusTag = geneOldLocusMap.get(resolvedGene) || null;
         const savedScrollPos = window.pageYOffset;
-        const checkboxes = Array.from(document.querySelectorAll('input.file-select-checkbox'));
-        const selectedFiles = (checkboxes.length === 0)
-          ? dataFiles.slice()
-          : dataFiles.filter(fileObj => {
-            const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
-            return checkbox && checkbox.checked;
-          });
+        const selectedFiles = dataFiles.filter(fileObj => {
+          const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
+          return checkbox && checkbox.checked;
+        });
         if (selectedFiles.length === 0) {
           alert('Please select at least one expression table.');
-          return false;
+          return;
         }
         try {
           await Promise.all(selectedFiles.map(ensureFileDataLoaded));
         } catch (error) {
           alert('Failed to load the selected expression tables. Please try again.');
-          return false;
+          return;
         }
         const seriesData = [];
         selectedFiles.forEach(fileObj => {
@@ -2095,7 +2082,7 @@
         });
         if (seriesData.length === 0) {
           alert("Gene not found in the selected files.");
-          return false;
+          return;
         }
         if (chart) { chart.destroy(); }
         const displayGeneText = resolvedOldLocusTag ? `${resolvedGene} (${resolvedOldLocusTag})` : resolvedGene;
@@ -2168,7 +2155,6 @@
         });
         chart.render();
         window.scrollTo(0, savedScrollPos);
-        return true;
       }
       document.getElementById('nextGene').addEventListener('click', async function () {
         try {
