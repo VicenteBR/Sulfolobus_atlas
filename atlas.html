@@ -35,6 +35,7 @@
       </div>
       <div class="text-center"><button id="plotButton">Plot Gene Expression</button></div>
       <div class="chart-info-row">
+        <button id="expressionGenomeButton" type="button" class="chart-action-button" disabled>Go to genome browser</button>
         <button id="expressionInfoButton" type="button" class="info-button" title="Show condition descriptions" aria-label="Show condition descriptions" aria-haspopup="dialog" aria-controls="conditionInfoModal">?</button>
       </div>
       <h2 id="expressionChartTitle" class="chart-heading" aria-live="polite"></h2>
@@ -78,6 +79,7 @@
         <button id="nextGenePairs">Next Gene</button>
       </div>
       <div class="chart-info-row">
+        <button id="pairsGenomeButton" type="button" class="chart-action-button" disabled>Go to genome browser</button>
         <button id="pairsInfoButton" type="button" class="info-button" title="Show condition descriptions" aria-label="Show condition descriptions" aria-haspopup="dialog" aria-controls="conditionInfoModal">?</button>
       </div>
       <h2 id="pairsChartTitle" class="chart-heading" aria-live="polite"></h2>
@@ -259,11 +261,33 @@
       let arcogDataPromise = null;
       let motifsInitialized = false;
       let pairsNavigationInitialized = false;
+      let geneCoordinateIndexPromise = null;
+      let geneCoordinateIndex = null;
+      let igvBrowserPromise = null;
+      let lastPlottedExpressionGene = null;
+      let lastPlottedExpressionOldLocus = null;
+      let lastPlottedPairsGene = null;
+      let lastPlottedPairsOldLocus = null;
       let arcog_currentSortColumn = null;
       let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
       let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
 
       const conditionInfoGroups = Array.isArray(window.conditionInfoGroups) ? window.conditionInfoGroups : [];
+
+      const expressionGenomeButton = document.getElementById('expressionGenomeButton');
+      const pairsGenomeButton = document.getElementById('pairsGenomeButton');
+
+      function syncExpressionGenomeButtonState() {
+        if (expressionGenomeButton) {
+          expressionGenomeButton.disabled = !lastPlottedExpressionGene;
+        }
+      }
+
+      function syncPairsGenomeButtonState() {
+        if (pairsGenomeButton) {
+          pairsGenomeButton.disabled = !lastPlottedPairsGene;
+        }
+      }
 
 
       /* -------------------- Data Loading Functions -------------------- */
@@ -423,6 +447,115 @@
           });
 
         return geneIndexPromise;
+      }
+
+      function ensureGeneCoordinateIndex() {
+        if (geneCoordinateIndexPromise) {
+          return geneCoordinateIndexPromise;
+        }
+
+        geneCoordinateIndexPromise = fetch('gffs/Sacidocaldarius-2024-curated-coding.gff')
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load curated coding annotation: ${response.status}`);
+            }
+            return response.text();
+          })
+          .then(text => {
+            const byGene = new Map();
+            const byOldTag = new Map();
+            const lines = text.split(/\r?\n/);
+            lines.forEach(line => {
+              if (!line || line.startsWith('#')) {
+                return;
+              }
+              const cols = line.split('\t');
+              if (cols.length < 9) {
+                return;
+              }
+              const type = cols[2] ? cols[2].toLowerCase() : '';
+              if (type !== 'gene') {
+                return;
+              }
+              const startVal = parseInt(cols[3], 10);
+              const endVal = parseInt(cols[4], 10);
+              if (!Number.isFinite(startVal) || !Number.isFinite(endVal)) {
+                return;
+              }
+              const attributes = {};
+              cols[8].split(';').forEach(pair => {
+                if (!pair) { return; }
+                const [rawKey, rawValue] = pair.split('=');
+                if (!rawKey) { return; }
+                const key = rawKey.trim();
+                if (!key) { return; }
+                let value = rawValue ? rawValue.trim() : '';
+                try {
+                  value = decodeURIComponent(value);
+                } catch (err) {
+                  // keep raw value if decoding fails
+                }
+                attributes[key] = value;
+              });
+              const locusTag = (attributes.locus_tag || attributes.ID || attributes.Name || '').trim();
+              if (!locusTag) {
+                return;
+              }
+              const normalizedPrimary = normalizeGeneKey(locusTag);
+              if (!normalizedPrimary) {
+                return;
+              }
+              const start = Math.min(startVal, endVal);
+              const end = Math.max(startVal, endVal);
+              const record = {
+                locus_tag: locusTag,
+                seqid: cols[0],
+                start,
+                end,
+                strand: cols[6] || '',
+                name: attributes.Name || ''
+              };
+              const oldTagValue = attributes.old_locus_tag || '';
+              const oldTags = oldTagValue ? oldTagValue.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+              if (oldTags.length > 0) {
+                record.old_locus_tag = oldTags[0];
+              }
+              const aliasCandidates = [locusTag];
+              ['Name', 'ID'].forEach(key => {
+                const value = attributes[key];
+                if (value) {
+                  aliasCandidates.push(value);
+                }
+              });
+              aliasCandidates.forEach(alias => {
+                const normalizedAlias = normalizeGeneKey(alias);
+                if (!normalizedAlias) {
+                  return;
+                }
+                if (!byGene.has(normalizedAlias)) {
+                  byGene.set(normalizedAlias, record);
+                }
+              });
+              oldTags.forEach(oldTag => {
+                const normalizedOld = normalizeGeneKey(oldTag);
+                if (!normalizedOld) {
+                  return;
+                }
+                if (!byOldTag.has(normalizedOld)) {
+                  byOldTag.set(normalizedOld, normalizedPrimary);
+                }
+              });
+            });
+            geneCoordinateIndex = { byGene, byOldTag };
+            return geneCoordinateIndex;
+          })
+          .catch(error => {
+            console.error('Error loading curated coding annotation:', error);
+            geneCoordinateIndexPromise = null;
+            throw error;
+          });
+
+        return geneCoordinateIndexPromise;
       }
 
       function loadTabFileList() {
@@ -790,7 +923,11 @@
       });
       function ensureIgvBrowser() {
         if (window.igvBrowser) {
-          return;
+          return Promise.resolve(window.igvBrowser);
+        }
+
+        if (igvBrowserPromise) {
+          return igvBrowserPromise;
         }
 
         const igvOptions = {
@@ -898,10 +1035,19 @@
           ]
         };
 
-        igv.createBrowser(document.getElementById("igvContainer"), igvOptions).then(browser => {
-          window.igvBrowser = browser;
-          console.log("IGV browser created");
-        });
+        igvBrowserPromise = igv.createBrowser(document.getElementById("igvContainer"), igvOptions)
+          .then(browser => {
+            window.igvBrowser = browser;
+            console.log("IGV browser created");
+            return browser;
+          })
+          .catch(error => {
+            console.error('Error creating IGV browser:', error);
+            igvBrowserPromise = null;
+            throw error;
+          });
+
+        return igvBrowserPromise;
       }
 
       const tabConfigs = [
@@ -917,6 +1063,8 @@
         button: document.getElementById(config.buttonId),
         content: document.getElementById(config.contentId)
       })).filter(config => config.button && config.content);
+
+      const genomeTabConfig = tabConfigs.find(config => config.buttonId === 'genomeViewerTabBtn') || null;
 
       let activeTabConfig = null;
 
@@ -935,6 +1083,63 @@
         }
       }
 
+      async function navigateToGenomeBrowserForGene(gene, oldLocusTag) {
+        if (!gene) {
+          return;
+        }
+
+        let coordinateIndex;
+        try {
+          coordinateIndex = await ensureGeneCoordinateIndex();
+        } catch (error) {
+          alert('Unable to load gene coordinates from the curated annotation.');
+          return;
+        }
+
+        const normalizedGene = normalizeGeneKey(gene);
+        let targetRecord = normalizedGene ? coordinateIndex.byGene.get(normalizedGene) : null;
+
+        if (!targetRecord && oldLocusTag) {
+          const normalizedOld = normalizeGeneKey(oldLocusTag);
+          const canonicalKey = normalizedOld ? coordinateIndex.byOldTag.get(normalizedOld) : null;
+          if (canonicalKey) {
+            targetRecord = coordinateIndex.byGene.get(canonicalKey) || null;
+          }
+        }
+
+        if (!targetRecord) {
+          alert('Coordinates for this gene were not found in the curated annotation.');
+          return;
+        }
+
+        if (!genomeTabConfig) {
+          alert('The genome browser tab is unavailable.');
+          return;
+        }
+
+        activateTab(genomeTabConfig);
+
+        let browser;
+        try {
+          browser = await ensureIgvBrowser();
+        } catch (error) {
+          alert('Unable to initialize the genome browser. Please try again.');
+          return;
+        }
+
+        const padding = 100;
+        const start = Math.max(1, Math.min(targetRecord.start, targetRecord.end) - padding);
+        const end = Math.max(targetRecord.start, targetRecord.end) + padding;
+        const locusString = `${targetRecord.seqid}:${start}-${end}`;
+
+        try {
+          await browser.search(locusString);
+        } catch (error) {
+          console.error('Genome browser navigation failed:', error);
+          alert('Unable to navigate to the requested locus in the genome browser.');
+        }
+      }
+
       tabConfigs.forEach(config => {
         config.button.addEventListener('click', () => activateTab(config));
       });
@@ -946,6 +1151,9 @@
 
       loadGeneIndex().catch(() => { /* errors already logged */ });
       loadTabFileList().catch(() => { /* errors already logged */ });
+
+      syncExpressionGenomeButtonState();
+      syncPairsGenomeButtonState();
 
       const conditionInfoModal = document.getElementById('conditionInfoModal');
       const conditionInfoContent = document.getElementById('conditionInfoContent');
@@ -1028,6 +1236,34 @@
           button.addEventListener('click', openConditionInfoModal);
         }
       });
+
+      if (expressionGenomeButton) {
+        expressionGenomeButton.addEventListener('click', async () => {
+          if (!lastPlottedExpressionGene) {
+            return;
+          }
+          expressionGenomeButton.disabled = true;
+          try {
+            await navigateToGenomeBrowserForGene(lastPlottedExpressionGene, lastPlottedExpressionOldLocus);
+          } finally {
+            syncExpressionGenomeButtonState();
+          }
+        });
+      }
+
+      if (pairsGenomeButton) {
+        pairsGenomeButton.addEventListener('click', async () => {
+          if (!lastPlottedPairsGene) {
+            return;
+          }
+          pairsGenomeButton.disabled = true;
+          try {
+            await navigateToGenomeBrowserForGene(lastPlottedPairsGene, lastPlottedPairsOldLocus);
+          } finally {
+            syncPairsGenomeButtonState();
+          }
+        });
+      }
 
       if (conditionInfoModal) {
         const conditionCloseButton = conditionInfoModal.querySelector('.close');
@@ -1308,6 +1544,9 @@
         if (geneRows.length === 0) {
           if (pairsChart) { pairsChart.destroy(); }
           if (pairsHeadingElement) { pairsHeadingElement.textContent = ''; }
+          lastPlottedPairsGene = null;
+          lastPlottedPairsOldLocus = null;
+          syncPairsGenomeButtonState();
           return;
         }
         let experiments = Array.from(new Set(geneRows.map(row => row.Experiment)));
@@ -1377,6 +1616,10 @@
             pairsHeadingElement.appendChild(document.createTextNode(` (${resolvedOldLocusTag})`));
           }
         }
+
+        lastPlottedPairsGene = gene;
+        lastPlottedPairsOldLocus = resolvedOldLocusTag || null;
+        syncPairsGenomeButtonState();
 
         pairsChart = new ApexCharts(document.querySelector("#pairsChartCanvas"), {
           chart: { type: 'bar', animations: { easing: 'easeOutQuart', speed: 800 } },
@@ -1689,6 +1932,10 @@
             chartHeadingElement.appendChild(document.createTextNode(` (${resolvedOldLocusTag})`));
           }
         }
+
+        lastPlottedExpressionGene = resolvedGene;
+        lastPlottedExpressionOldLocus = resolvedOldLocusTag || null;
+        syncExpressionGenomeButtonState();
 
         chart = new ApexCharts(document.querySelector("#chartCanvas"), {
           chart: {

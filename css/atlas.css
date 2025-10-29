@@ -196,6 +196,18 @@ h1 {
   gap: 10px;
 }
 
+.chart-action-button {
+  padding: 8px 14px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chart-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .pairs-legend {
   margin-top: 10px;
   display: flex;
