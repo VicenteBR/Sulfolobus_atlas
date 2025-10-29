@@ -4,15 +4,15 @@ window.conditionInfoGroups = [
     entries: [
       {
         labels: ['t15-HS', 't15-Sacidocaldarius-HS'],
-        description: 'Heat shock sample collected 15 minutes after the temperature upshift.'
+        description: 'Sample collected 15 minutes after heat stress.'
       },
       {
         labels: ['t30-HS', 't30-Sacidocaldarius-HS'],
-        description: 'Heat shock sample collected 30 minutes after the temperature upshift.'
+        description: 'Sample collected 30 minutes after heat stress.'
       },
       {
         labels: ['t60-HS', 't60-Sacidocaldarius-HS'],
-        description: 'Heat shock sample collected 60 minutes after the temperature upshift.'
+        description: 'Sample collected 60 minutes after heat stress.'
       }
     ]
   },
@@ -90,47 +90,47 @@ window.conditionInfoGroups = [
     ]
   },
   {
-    title: 'Knockout strains',
+    title: 'NUDIX Knockout strains',
     entries: [
       {
         labels: ['RS0060KO_early'],
-        description: 'RS0060 knockout strain sampled at the early time point.'
+        description: 'SACI_RS00060 knockout strain sampled at the early stationary phase.'
       },
       {
         labels: ['RS0060KO_late'],
-        description: 'RS0060 knockout strain sampled at the late time point.'
+        description: 'SACI_RS00060 knockout strain sampled at the late log phase.'
       },
       {
         labels: ['RS0575KO_early'],
-        description: 'RS0575 knockout strain sampled at the early time point.'
+        description: 'SACI_RS00575 knockout strain sampled at the early stationary phase.'
       },
       {
         labels: ['RS0575KO_late'],
-        description: 'RS0575 knockout strain sampled at the late time point.'
+        description: 'SACI_RS00575 knockout strain sampled at the late log phase.'
       },
       {
         labels: ['RS0730KO_early'],
-        description: 'RS0730 knockout strain sampled at the early time point.'
+        description: 'SACI_RS00730 knockout strain sampled at the early stationary phase.'
       },
       {
         labels: ['RS0730KO_late'],
-        description: 'RS0730 knockout strain sampled at the late time point.'
+        description: 'SACI_RS00730 knockout strain sampled at the late log phase.'
       },
       {
         labels: ['RS2625KO_early'],
-        description: 'RS2625 knockout strain sampled at the early time point.'
+        description: 'SACI_RS02625 knockout strain sampled at the early stationary phase.'
       },
       {
         labels: ['RS2625KO_late'],
-        description: 'RS2625 knockout strain sampled at the late time point.'
+        description: 'SACI_RS02625 knockout strain sampled at the late log phase.'
       },
       {
         labels: ['dKO_early'],
-        description: 'Double knockout strain (dKO) sampled at the early time point.'
+        description: 'Double knockout strain (SACI_RS00060/SACI_RS00730) sampled at the early stationary phase.'
       },
       {
         labels: ['dKO_late'],
-        description: 'Double knockout strain (dKO) sampled at the late time point.'
+        description: 'Double knockout strain (SACI_RS00060/SACI_RS00730) sampled at the late log phase.'
       }
     ]
   },
@@ -139,23 +139,23 @@ window.conditionInfoGroups = [
     entries: [
       {
         labels: ['post-starvation-030min'],
-        description: 'Cells sampled 30 minutes after the starvation challenge.'
+        description: 'Cells sampled 30 minutes post-starvation.'
       },
       {
         labels: ['post-starvation-060min'],
-        description: 'Cells sampled 60 minutes after the starvation challenge.'
+        description: 'Cells sampled 60 minutes post-starvation.'
       },
       {
         labels: ['post-starvation-090min'],
-        description: 'Cells sampled 90 minutes after the starvation challenge.'
+        description: 'Cells sampled 90 minutes post-starvation.'
       },
       {
         labels: ['post-starvation-120min'],
-        description: 'Cells sampled 120 minutes after the starvation challenge.'
+        description: 'Cells sampled 120 minutes post-starvation.'
       },
       {
         labels: ['post-starvation-240min'],
-        description: 'Cells sampled 240 minutes after the starvation challenge.'
+        description: 'Cells sampled 240 minutes post-starvation.'
       }
     ]
   }

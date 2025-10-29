@@ -143,7 +143,7 @@
           </div>
           <div class="arCOG-middle">
             <label for="arcog_annotationDropdown">Select functional class:
-              <button id="helpButton" title="View arCOG functional class legend">?</button>
+              <button id="helpButton"  type="button" class="info-button" aria-haspopup="dialog" title="View arCOG functional class legend" aria-controls="arcogFormatModal">?</button>
             </label>
             <select id="arcog_annotationDropdown" multiple></select>
           </div>
@@ -230,18 +230,13 @@
       <span class="close" role="button" aria-label="Close expression table format information">&times;</span>
       <h2 id="arcogFormatModalTitle">Expression table format</h2>
       <div class="modal-body">
-        <p>Expression tables should mirror the DESeq2 files shipped with the atlas:</p>
+        <p>Expression tables should follow the DESeq2 tables avaialable with the atlas (check GitHub repository):</p>
         <ul class="modal-guidelines">
-          <li>Tab- or comma-delimited text with a header row that includes at least <code>Gene</code> and
+          <li>Tab delimited files with a header row that includes at least <code>Gene</code> and
             <code>log2FoldChange</code> columns.</li>
-          <li>Optional <code>padj</code>, <code>pvalue</code>, and <code>old_locus_tag</code> columns will be used when
-            present to style significance and resolve legacy identifiers.</li>
-          <li>Gene identifiers should match S. acidocaldarius locus tags (for example <code>SACI_RS00045</code>) or the
-            compact CDS names used in the provided DESeq2 tables.</li>
-          <li>One gene per row; additional metadata columns are preserved but ignored by the arCOG loader.</li>
-        </ul>
-        <p>Multiple tables can be queued at once. Each file name becomes the condition label shown in the charts and
-          arCOG filters.</p>
+          <li>Optional: <code>padj</code>, <code>pvalue</code>, and <code>old_locus_tag</code> columns will be used when
+            present to style significance and resolve legacy identifiers.</li>                  
+        </ul>        
       </div>
     </div>
   </div>
