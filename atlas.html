@@ -9,738 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/igv/dist/igv.css">
-  <style>
-    /* Standardize all button styling */
-    button {
-      background-color: #2e2e2e;
-      color: #e0e0e0;
-      border: 1px solid #555;
-      border-radius: 4px;
-      padding: 10px 15px;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background 0.3s ease, border-color 0.3s ease;
-      outline: none;
-    }
-
-    button:hover {
-      background-color: #222;
-      border-color: #777;
-    }
-
-    button:active {
-      background-color: #1e1e1e;
-      border-color: #666;
-    }
-
-    /* Standardize form elements: dropdowns, search bars, file inputs */
-    select,
-    input[type="text"],
-    input[type="file"] {
-      background-color: #1e1e1e;
-      color: #e0e0e0;
-      border: 1px solid #555;
-      border-radius: 4px;
-      padding: 8px 12px;
-      font-size: 16px;
-      transition: background 0.3s ease, border-color 0.3s ease;
-    }
-
-    select:focus,
-    input[type="text"]:focus {
-      border-color: #0072B2;
-      outline: none;
-    }
-
-    .apexcharts-menu,
-    .apexcharts-menu * {
-      color: #000 !important;
-      text-align: center;
-    }
-
-    /* Base styling */
-    body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      background: #121212;
-      margin: 20px;
-      color: #e0e0e0;
-      text-align: center;
-    }
-
-    h1 {
-      text-align: center;
-      color: #f0f0f0;
-    }
-
-    .container {
-      width: 90%;
-      max-width: 1240px;
-      margin: auto;
-      padding: 2%;
-      background: #1e1e1e;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    }
-
-    /* Tab styling */
-    .tab-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    @media (max-width: 768px) {
-      .tab-bar {
-        flex-direction: column;
-      }
-
-      .container {
-        padding: 10px;
-      }
-
-      #igvContainer {
-        height: calc(100vh - 200px);
-      }
-
-      #chartCanvas,
-      #pairsChartCanvas {
-        min-height: 200px;
-      }
-    }
-
-    .tab-bar button {
-      flex: 1;
-    }
-
-    .tab-bar button.active {
-      background-color: #0072B2;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    /* Viewer Tab styling */
-    #chartCanvas {
-      margin-top: 20px;
-      background: transparent;
-      min-height: 300px;
-    }
-
-    #legend {
-      margin-top: 20px;
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      font-size: 16px;
-    }
-
-    #legend div {
-      display: flex;
-      align-items: center;
-    }
-
-    #legend div span {
-      margin-left: 5px;
-    }
-
-    .legend-box {
-      width: 20px;
-      height: 20px;
-      border: 1px solid #fff;
-    }
-
-    /* Data Tables styling */
-    #tableList {
-      margin-bottom: 20px;
-    }
-
-    #tableList table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 10px;
-    }
-
-    #tableList th,
-    #tableList td {
-      border: 1px solid #555;
-      padding: 8px;
-      text-align: left;
-    }
-
-    #tableList th {
-      background-color: #2e2e2e;
-    }
-
-    #tableDisplay {
-      max-height: 400px;
-      overflow-x: auto;
-      overflow-y: auto;
-      border: 1px solid #555;
-    }
-
-    #tableDisplay table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    #tableDisplay th,
-    #tableDisplay td {
-      border: 1px solid #555;
-      padding: 5px;
-    }
-
-    #tableDisplay th {
-      background-color: #2e2e2e;
-    }
-
-    /* asRNA/mRNA pairs styling */
-    .upload-group {
-      margin-bottom: 15px;
-    }
-
-    .upload-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
-    }
-
-    .upload-group input {
-      width: auto;
-    }
-
-    .status-message {
-      color: #D55E00;
-      margin-top: 5px;
-    }
-
-    .pairs-section {
-      margin-top: 20px;
-    }
-
-    .pairs-section h2 {
-      margin-bottom: 15px;
-    }
-
-    .pairs-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    .pairs-table th,
-    .pairs-table td {
-      padding: 8px 12px;
-      border: 1px solid #555;
-      text-align: left;
-    }
-
-    .pairs-table th {
-      background-color: #2e2e2e;
-    }
-
-    .significant {
-      font-weight: bold;
-    }
-
-    /* Genome Viewer Tab styling */
-    #igvContainer {
-      width: 100%;
-      height: calc(100vh - 150px);
-      margin: auto;
-      background: #ffffff;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-      padding: 10px;
-    }
-
-    #igvContainer svg text,
-    #igvContainer svg tspan {
-      fill: #000 !important;
-      color: #000 !important;
-    }
-
-    #igvContainer .igv-container {
-      background-color: #000000 !important;
-    }
-
-    #igvContainer .igv-track-label {
-      color: #000 !important;
-    }
-
-    #igvContainer .igv-track {
-      border: 1px solid #000 !important;
-    }
-
-    #igvContainer .igv-axis,
-    #igvContainer .igv-popover-label,
-    #igvContainer .igv-popover-content {
-      color: #000 !important;
-    }
-
-    #igvContainer .igv-control-pane,
-    #igvContainer .igv-menu-bar-container {
-      background-color: #ffffff !important;
-    }
-
-    #igvContainer .igv-locus-bar {
-      background-color: #000 !important;
-    }
-
-    #igvContainer .igv-locus-label,
-    #igvContainer .igv-locus-input {
-      background-color: #000000 !important;
-      color: #000 !important;
-    }
-
-    #igvContainer .igv-icon,
-    #igvContainer .igv-glyph-count,
-    #igvContainer .igv-zoom-handles path {
-      fill: #000 !important;
-      stroke: #000 !important;
-    }
-
-    #igvContainer .igv-popover {
-      background-color: #000 !important;
-      border: 1px solid #000 !important;
-      border-radius: 6px !important;
-      color: #000 !important;
-    }
-
-    #igvContainer .igv-track-label,
-    #igvContainer .igv-track-label * {
-      color: #000 !important;
-      fill: #000 !important;
-    }
-
-    #igvContainer .igv-popover,
-    #igvContainer .igv-popover * {
-      color: #000 !important;
-    }
-
-    /* Processing Site Motifs Tab Styles */
-    #motifsTab .motifs-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
-      gap: 20px;
-      margin-top: 20px;
-    }
-
-    #motifsTab .section {
-      background: #1e1e1e;
-      border: 1px solid #333;
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    #motifsTab .section-top,
-    #motifsTab .section-bottom {
-      flex: 1;
-      padding: 15px;
-    }
-
-    #motifsTab .section-top {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #2e2e2e;
-    }
-
-    #motifsTab .svg-wrapper {
-      background: #ffffff;
-      max-width: 100%;
-      height: auto;
-      border: 4px solid #ccc;
-      border-radius: 4px;
-      padding: 5px;
-      display: inline-block;
-    }
-
-    #motifsTab .svg-wrapper img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-
-    #motifsTab .section-bottom {
-      background: #2e2e2e;
-      display: flex;
-      flex-direction: column;
-      border-top: 1px solid #333;
-    }
-
-    #motifsTab .section-bottom select {
-      margin-bottom: 10px;
-      padding: 10px;
-      font-size: 16px;
-      border: 1px solid #555;
-      border-radius: 4px;
-      background: #1e1e1e;
-      color: #e0e0e0;
-      transition: background 0.3s ease, border-color 0.3s ease;
-    }
-
-    #motifsTab .section-bottom select:hover {
-      background: #222;
-      border-color: #777;
-    }
-
-    #motifsTab .btn-container {
-      margin-bottom: 10px;
-      display: flex;
-      gap: 10px;
-    }
-
-    #motifsTab .btn-container button {
-      flex: 1;
-      padding: 10px;
-      font-size: 14px;
-      border: 1px solid #555;
-      border-radius: 4px;
-      background: #1e1e1e;
-      color: #e0e0e0;
-      cursor: pointer;
-      transition: background 0.3s ease, border-color 0.3s ease;
-    }
-
-    #motifsTab .btn-container button:hover {
-      background: #222;
-      border-color: #777;
-    }
-
-    #motifsTab .section-bottom pre {
-      flex: 1;
-      padding: 15px;
-      background: #1e1e1e;
-      border: 1px solid #555;
-      border-radius: 4px;
-      overflow: auto;
-      white-space: pre-wrap;
-      color: #e0e0e0;
-      font-size: 14px;
-    }
-
-    /* Save Chart Button Styles */
-    .save-chart-btn {
-      margin-top: 10px;
-    }
-
-    /* Additional styles for arCOG analysis */
-    .arCOG-container {
-      max-width: 1200px;
-      margin: auto;
-      background-color: #1e1e1e;
-      padding: 10px 20px 20px 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    }
-
-    .arCOG-header-controls {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 10px 0;
-    }
-
-    .arCOG-left {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .arCOG-left label {
-      font-size: 14px;
-      font-weight: bold;
-      margin-bottom: 2px;
-    }
-
-    .arCOG-middle {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .arCOG-middle label {
-      font-size: 14px;
-      font-weight: bold;
-      margin-bottom: 2px;
-    }
-
-    .arCOG-middle select {
-      padding: 6px;
-      font-size: 14px;
-      border: 1px solid #555;
-      border-radius: 4px;
-      background-color: #222;
-      color: #e0e0e0;
-      outline: none;
-      width: 350px;
-      height: 200px;
-    }
-
-    .arCOG-right {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .arCOG-right button {
-      width: 200px;
-    }
-
-    .arCOG-header-controls input[type="file"],
-    .arCOG-header-controls select {
-      padding: 6px;
-      font-size: 14px;
-      border: 1px solid #555;
-      border-radius: 4px;
-      background-color: #222;
-      color: #e0e0e0;
-      outline: none;
-    }
-
-    .arCOG-table-container {
-      width: 100%;
-      max-height: 60vh;
-      overflow-y: auto;
-      margin-bottom: 20px;
-      border: 1px solid #444;
-    }
-
-    .arCOG-results-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    .arCOG-results-table th,
-    .arCOG-results-table td {
-      border: 1px solid #555;
-      padding: 8px;
-      text-align: center;
-      font-size: 8;
-    }
-
-    .arCOG-results-table th .header-text {
-      display: block;
-      padding: 8px;
-      padding-right: 25px;
-      white-space: nowrap;
-      overflow: auto;
-      text-align: inherit;
-    }
-
-    .arCOG-results-table th {
-      background-color: #2e2e2e;
-    }
-
-    .arCOG-results-table th {
-      position: sticky;
-      top: 0;
-      background-color: #2e2e2e;
-      z-index: 10;
-      cursor: pointer;
-      padding-right: 25px;
-      padding: 8px
-    }
-
-    .arCOG-results-table td {
-      text-align: center;
-    }
-
-    .arCOG-message {
-      text-align: center;
-      margin-top: 5px;
-      color: #ffb74d;
-    }
-
-    #helpButton {
-      background-color: #2e2e2e;
-      /* Primary blue */
-      color: #fff;
-      font-size: 14px;
-      font-weight: bold;
-      text-align: center;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-
-    #helpButton:hover {
-      background-color: #000000;
-    }
-
-    #legendTableContainer table {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: Arial, sans-serif;
-    }
-
-    #legendTableContainer thead {
-      background-color: #2e2e2e;
-      color: #fff;
-    }
-
-    #legendTableContainer th,
-    #legendTableContainer td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      text-align: left;
-    }
-
-    #legendTableContainer tbody tr:nth-child(even) {
-      background-color: #f9f9f9;
-    }
-
-    #legendTableContainer tbody tr:hover {
-      background-color: #f1f1f1;
-    }
-
-    /* Bubble chart container */
-    #arcog_barChart {
-      width: 100%;
-      height: 40vh;
-      margin-top: 20px;
-      background-color: #f5efef;
-      border: 2px solid #555;
-      border-radius: 4px;
-      padding: 10px;
-    }
-
-    #tableControls {
-      display: flex;
-      gap: 10px;
-      margin: 10px 0;
-      background-color: #1e1e1e;
-      padding: 10px;
-      border: 1px solid #555;
-      border-radius: 4px;
-    }
-
-    #tableList input[type="checkbox"] {
-      transform: scale(1.5);
-      display: block;
-      margin: 0 auto;
-    }
-
-    #plotButton {
-      position: relative;
-      left: 0px;
-      top: 5px;
-    }
-
-    #prevGene,
-    #nextGene {
-      width: 150px;
-    }
-
-    /* Modal styles for legend table */
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      overflow: auto;
-      background-color: rgba(0, 0, 0, 0.4);
-    }
-
-    .modal-content {
-      background-color: #fefefe;
-      margin: 5% auto;
-      padding: 20px;
-      border: 1px solid #888;
-      width: 80%;
-      max-width: 800px;
-      text-align: left;
-      color: #000;
-    }
-
-    .close {
-      color: #aaa;
-      float: right;
-      font-size: 28px;
-      font-weight: bold;
-    }
-
-    .close:hover,
-    .close:focus {
-      color: black;
-      text-decoration: none;
-      cursor: pointer;
-    }
-
-    /* Resources styling */
-    #resourcesTab {
-      max-width: 64%;
-      margin: auto;
-      background-color: #1e1e1e;
-      padding: 10px 20px 20px 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    }
-
-    .resource-list {
-      list-style: none;
-      padding-left: 0;
-      text-align: left;
-      font-size: 1.05em;
-      line-height: 1.8;
-    }
-
-    .resource-list li {
-      margin-bottom: 10px;
-      color: #ccc;
-      display: flex;
-      align-items: flex-start;
-    }
-
-    .resource-list .dash {
-      margin-right: 10px;
-      color: #888;
-      font-weight: bold;
-      width: 10px;
-      display: inline-block;
-    }
-
-    .resource-list a {
-      color: #4db8ff;
-      text-decoration: none;
-      font-weight: 500;
-    }
-
-    .resource-list a:hover {
-      color: #ffffff;
-      text-decoration: underline;
-    }
-
-    /* Footer styling */
-    .footer {
-      margin-top: 40px;
-      padding: 20px;
-      font-size: 0.9em;
-      color: #888;
-      text-align: center;
-    }
-
-    .footer a {
-      color: #aaa;
-      text-decoration: none;
-    }
-
-    .footer a:hover {
-      color: #fff;
-    }
-  </style>
+  <link rel="stylesheet" href="css/atlas.css">
 </head>
 
 <body>
@@ -764,15 +33,19 @@
         <button id="nextGene">Next</button>
         <datalist id="geneList"></datalist>
       </div>
-      <div style="text-align: center;"><button id="plotButton">Plot Gene Expression</button></div>
+      <div class="chart-info-row">
+        <button id="expressionGenomeButton" type="button" class="chart-action-button" disabled>Go to genome browser</button>
+        <button id="expressionInfoButton" type="button" class="info-button" title="Show condition descriptions" aria-label="Show condition descriptions" aria-haspopup="dialog" aria-controls="conditionInfoModal">?</button>
+      </div>
+      <h2 id="expressionChartTitle" class="chart-heading" aria-live="polite"></h2>
       <div id="chartCanvas"></div>
       <div id="legend">
         <div>
-          <div class="legend-box" style="background-color: #4fc3f7;"></div>
+          <div class="legend-box legend-box--significant"></div>
           <span>p ≤ 0.05 (Significant)</span>
         </div>
         <div>
-          <div class="legend-box" style="background-color: #ffb74d;"></div>
+          <div class="legend-box legend-box--nonsignificant"></div>
           <span>p > 0.05 (Non-significant)</span>
         </div>
       </div>
@@ -804,23 +77,28 @@
         <datalist id="geneOptionsPairs"></datalist>
         <button id="nextGenePairs">Next Gene</button>
       </div>
+      <div class="chart-info-row">
+        <button id="pairsGenomeButton" type="button" class="chart-action-button" disabled>Go to genome browser</button>
+        <button id="pairsInfoButton" type="button" class="info-button" title="Show condition descriptions" aria-label="Show condition descriptions" aria-haspopup="dialog" aria-controls="conditionInfoModal">?</button>
+      </div>
+      <h2 id="pairsChartTitle" class="chart-heading" aria-live="polite"></h2>
       <div id="pairsChartCanvas"></div>
-      <div id="pairsLegend" style="margin-top: 10px; display: flex; gap: 15px; justify-content: center;">
-        <div style="display: flex; align-items: center; gap: 5px;">
-          <div style="width: 20px; height: 20px; background-color: #4fc3f7; border: 1px solid #fff;"></div>
+      <div id="pairsLegend" class="pairs-legend">
+        <div class="legend-entry">
+          <div class="legend-box legend-box--pairs-primary"></div>
           <span>Gene (p ≤ 0.05)</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 5px;">
-          <div style="width: 20px; height: 20px; background-color: #a9e3f7; border: 1px solid #fff;"></div>
-          <span>Gene (p > 0.05)</span>
+        <div class="legend-entry">
+          <div class="legend-box legend-box--pairs-primary-light"></div>
+          <span>Gene (p &gt; 0.05)</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 5px;">
-          <div style="width: 20px; height: 20px; background-color: #ffb74d; border: 1px solid #fff;"></div>
+        <div class="legend-entry">
+          <div class="legend-box legend-box--pairs-secondary"></div>
           <span>asRNA (p ≤ 0.05)</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 5px;">
-          <div style="width: 20px; height: 20px; background-color: #ffd8a5; border: 1px solid #fff;"></div>
-          <span>asRNA (p > 0.05)</span>
+        <div class="legend-entry">
+          <div class="legend-box legend-box--pairs-secondary-light"></div>
+          <span>asRNA (p &gt; 0.05)</span>
         </div>
       </div>
       <div class="pairs-section">
@@ -847,89 +125,29 @@
 
     <!-- Processing Site Motifs Tab -->
     <div id="motifsTab" class="tab-content">
-      <div class="motifs-container">
-        <!-- Section 1 -->
-        <div class="section">
-          <div class="section-top">
-            <div class="svg-wrapper">
-              <img src="svg/motif-1-weblogo.svg" alt="SVG 1">
-            </div>
-          </div>
-          <div class="section-bottom">
-            <select id="fastaSelect1"></select>
-            <div class="btn-container">
-              <button id="copyCoord1">Copy Coordinates</button>
-              <button id="copySeq1">Copy Sequence</button>
-            </div>
-            <pre id="sequenceDisplay1"></pre>
-          </div>
-        </div>
-        <!-- Section 2 -->
-        <div class="section">
-          <div class="section-top">
-            <div class="svg-wrapper">
-              <img src="svg/motif-2-weblogo.svg" alt="SVG 2">
-            </div>
-          </div>
-          <div class="section-bottom">
-            <select id="fastaSelect2"></select>
-            <div class="btn-container">
-              <button id="copyCoord2">Copy Coordinates</button>
-              <button id="copySeq2">Copy Sequence</button>
-            </div>
-            <pre id="sequenceDisplay2"></pre>
-          </div>
-        </div>
-        <!-- Section 3 -->
-        <div class="section">
-          <div class="section-top">
-            <div class="svg-wrapper">
-              <img src="svg/motif-3-weblogo.svg" alt="SVG 3">
-            </div>
-          </div>
-          <div class="section-bottom">
-            <select id="fastaSelect3"></select>
-            <div class="btn-container">
-              <button id="copyCoord3">Copy Coordinates</button>
-              <button id="copySeq3">Copy Sequence</button>
-            </div>
-            <pre id="sequenceDisplay3"></pre>
-          </div>
-        </div>
-        <!-- Section 4 -->
-        <div class="section">
-          <div class="section-top">
-            <div class="svg-wrapper">
-              <img src="svg/motif-4-weblogo.svg" alt="SVG 4">
-            </div>
-          </div>
-          <div class="section-bottom">
-            <select id="fastaSelect4"></select>
-            <div class="btn-container">
-              <button id="copyCoord4">Copy Coordinates</button>
-              <button id="copySeq4">Copy Sequence</button>
-            </div>
-            <pre id="sequenceDisplay4"></pre>
-          </div>
-        </div>
-      </div>
+      <div class="motifs-container" id="motifsContainer"></div>
     </div>
 
     <!-- New arCOG analysis Tab -->
     <div id="arCOGAnalysisTab" class="tab-content">
       <div class="arCOG-container">
-        <div class="arCOG-header-controls" style="display: flex; align-items: flex-start; gap: 10px;">
-          <div class="arCOG-left" style="display: flex; flex-direction: column;">
-            <label for="arcog_deseq2Input">Load Expression table</label>
+        <div class="arCOG-header-controls">
+          <div class="arCOG-left">
+            <div class="arcog-input-header">
+              <label for="arcog_deseq2Input">Load Expression table</label>
+              <button id="arcogFormatInfoButton" type="button" class="info-button" title="View format requirements"
+                aria-label="View expression table format requirements" aria-haspopup="dialog"
+                aria-controls="arcogFormatModal">?</button>
+            </div>
             <input type="file" id="arcog_deseq2Input" accept=".txt,.tsv,.tab,.csv" title="Load DESeq2 Table(s)">
           </div>
-          <div class="arCOG-middle" style="display: flex; flex-direction: column;">
+          <div class="arCOG-middle">
             <label for="arcog_annotationDropdown">Select functional class:
               <button id="helpButton" title="View arCOG functional class legend">?</button>
             </label>
-            <select id="arcog_annotationDropdown" multiple style="width: 350px; height: 200px;"></select>
+            <select id="arcog_annotationDropdown" multiple></select>
           </div>
-          <div class="arCOG-right" style="display: flex; flex-direction: column; gap: 5px;">
+          <div class="arCOG-right">
             <button id="arcog_filterBtn">Generate Table</button>
             <button id="arcog_exportTableBtn">Export Table</button>
             <button id="arcog_clearBtn">Clear All</button>
@@ -938,7 +156,7 @@
         <div class="arCOG-message" id="arcog_searchMessage"></div>
         <div class="arCOG-message" id="arcog_filterMessage"></div>
         <div class="arCOG-table-container">
-          <table class="arCOG-results-table" id="arcog_resultsTable" style="display:none;">
+          <table class="arCOG-results-table" id="arcog_resultsTable">
             <thead>
               <tr id="arcog_tableHeader"></tr>
             </thead>
@@ -950,7 +168,7 @@
   </div>
 
   <div id="resourcesTab" class="tab-content">
-    <h2 style="margin-bottom: 20px; text-align: left;">Useful Resources</h2>
+    <h2 class="resources-heading">Useful Resources</h2>
     <ul class="resource-list">
       <li>
         <a href="https://blast.ncbi.nlm.nih.gov/Blast.cgi" target="_blank" rel="noopener noreferrer">NCBI BLAST</a> –
@@ -990,13 +208,43 @@
     <a href="https://www.uni-marburg.de/de/fb17/fachgebiete/genetik/ag-randau" target="_blank"
       rel="noopener noreferrer">
       Prokaryotic RNA Biology Group (AG Lennart Randau)</a><br>
-    <a href="mailto:jose.gomes@uni-marburg.de" style="color: #aaa; text-decoration: none;">
+    <a href="mailto:jose.gomes@uni-marburg.de">
       gomesfil@staff.uni-marburg.de
     </a><br>
     Last updated October 2025
   </div>
 
 
+
+  <div id="conditionInfoModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="conditionInfoTitle" aria-hidden="true">
+    <div class="modal-content">
+      <span class="close" role="button" aria-label="Close condition descriptions" data-target="conditionInfoModal">&times;</span>
+      <h2 id="conditionInfoTitle">Condition key</h2>
+      <div id="conditionInfoContent"></div>
+    </div>
+  </div>
+
+  <div id="arcogFormatModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="arcogFormatModalTitle"
+    aria-hidden="true">
+    <div class="modal-content">
+      <span class="close" role="button" aria-label="Close expression table format information">&times;</span>
+      <h2 id="arcogFormatModalTitle">Expression table format</h2>
+      <div class="modal-body">
+        <p>Expression tables should mirror the DESeq2 files shipped with the atlas:</p>
+        <ul class="modal-guidelines">
+          <li>Tab- or comma-delimited text with a header row that includes at least <code>Gene</code> and
+            <code>log2FoldChange</code> columns.</li>
+          <li>Optional <code>padj</code>, <code>pvalue</code>, and <code>old_locus_tag</code> columns will be used when
+            present to style significance and resolve legacy identifiers.</li>
+          <li>Gene identifiers should match S. acidocaldarius locus tags (for example <code>SACI_RS00045</code>) or the
+            compact CDS names used in the provided DESeq2 tables.</li>
+          <li>One gene per row; additional metadata columns are preserved but ignored by the arCOG loader.</li>
+        </ul>
+        <p>Multiple tables can be queued at once. Each file name becomes the condition label shown in the charts and
+          arCOG filters.</p>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal Popup for arCOG Legend Table -->
   <div id="modalHelp" class="modal">
@@ -1012,6 +260,7 @@
 
   <!-- IGV.js script for Genome Viewer -->
   <script src="https://cdn.jsdelivr.net/npm/igv/dist/igv.min.js"></script>
+  <script src="js/condition-info-data.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       /* -------------------- Global Variables for Tabs -------------------- */
@@ -1030,9 +279,45 @@
       let geneOldLocusMap = new Map();
       let pairsGeneLookupMap = new Map();
       let pairsGeneOldLocusMap = new Map();
+      let expressionDataPromise = null;
+      let tabFileListPromise = null;
+      let geneIndexPromise = null;
+      let geneIndexEntries = [];
+      let pairsDataPromise = null;
+      let arcogDataPromise = null;
+      let motifsInitialized = false;
+      let pairsNavigationInitialized = false;
+      let geneCoordinateIndexPromise = null;
+      let geneCoordinateIndex = null;
+      let igvBrowserPromise = null;
+      let lastPlottedExpressionGene = null;
+      let lastPlottedExpressionOldLocus = null;
+      let lastPlottedPairsGene = null;
+      let lastPlottedPairsOldLocus = null;
       let arcog_currentSortColumn = null;
       let arcog_currentSortDirection = 'asc'; // 'asc' or 'desc'
       let arcog_originalData = []; // To store the unsorted data if needed for reset or multiple sorts
+      const DEFAULT_EXPRESSION_GENE = 'SACI_RS05835';
+      let hasPlottedDefaultExpressionGene = false;
+
+      const conditionInfoGroups = Array.isArray(window.conditionInfoGroups) ? window.conditionInfoGroups : [];
+
+      const expressionGenomeButton = document.getElementById('expressionGenomeButton');
+      const pairsGenomeButton = document.getElementById('pairsGenomeButton');
+      const geneInputElement = document.getElementById('geneInput');
+
+      function syncExpressionGenomeButtonState() {
+        if (expressionGenomeButton) {
+          expressionGenomeButton.disabled = !lastPlottedExpressionGene;
+        }
+      }
+
+      function syncPairsGenomeButtonState() {
+        if (pairsGenomeButton) {
+          pairsGenomeButton.disabled = !lastPlottedPairsGene;
+        }
+      }
+
 
       /* -------------------- Data Loading Functions -------------------- */
       function loadGFFData() {
@@ -1066,9 +351,24 @@
             document.getElementById('arcog_searchMessage').textContent = "Failed to load GFF data.";
           });
       }
-      document.getElementById("geneInput").addEventListener("click", function () {
-        this.select();
-      });
+      if (geneInputElement) {
+        geneInputElement.addEventListener('click', function () {
+          this.select();
+          preloadTabFiles().catch(() => { /* handled elsewhere */ });
+        });
+        geneInputElement.addEventListener('focus', function () {
+          preloadTabFiles().catch(() => { /* handled elsewhere */ });
+        });
+        geneInputElement.addEventListener('change', function () {
+          handleExpressionGeneInput(this.value);
+        });
+        geneInputElement.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            handleExpressionGeneInput(this.value);
+          }
+        });
+      }
 
       function setTableCheckboxes(isChecked) {
         document.querySelectorAll('#tableList input[type="checkbox"]').forEach(checkbox => {
@@ -1160,37 +460,285 @@
       function shortenFilename(filename) {
         return filename.replace(/deseq-tabs\/DESeq2_/, "").replace(/deseq-tabs\/DESeq2-/, "").replace(/\.tab$/, "");
       }
-      function preloadTabFiles() {
-        fetch('data/tabFiles.json')
-          .then(response => response.json())
-          .then(fileList => {
-            dataFiles = [];
-            const promises = fileList.map(fileName => {
-              return fetch(fileName)
-                .then(response => response.text())
-                .then(text => {
-                  let delimiter = text.indexOf(",") > -1 ? "," : "\t";
-                  const parsed = Papa.parse(text, { header: true, delimiter: delimiter, dynamicTyping: true });
-                  if (parsed.data.length === 0) return;
-                  let headers = Object.keys(parsed.data[0]);
-                  let geneColumn = headers.find(h => h.toLowerCase() === "gene") || headers[0];
-                  let oldLocusColumn = headers.find(h => h && h.toLowerCase().trim() === "old_locus_tag");
-                  dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn, oldLocusColumn: oldLocusColumn });
-                });
-            });
-            Promise.all(promises)
-              .then(() => {
-                updateGeneList();
-                updateTableList();
-                console.log("All .tab files preloaded successfully!");
-              })
-              .catch(error => {
-                console.error("Error preloading .tab files:", error);
-              });
+      function loadGeneIndex() {
+        if (geneIndexPromise) {
+          return geneIndexPromise;
+        }
+
+        geneIndexPromise = fetch('data/gene-index.json')
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load gene index: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(entries => {
+            if (!Array.isArray(entries)) {
+              geneIndexEntries = [];
+              return;
+            }
+            geneIndexEntries = entries;
+            updateGeneList();
           })
           .catch(error => {
-            console.error("Error fetching tab files list:", error);
+            console.error('Error loading gene index:', error);
+            geneIndexPromise = null;
+            throw error;
           });
+
+        return geneIndexPromise;
+      }
+
+      function ensureGeneCoordinateIndex() {
+        if (geneCoordinateIndexPromise) {
+          return geneCoordinateIndexPromise;
+        }
+
+        const curatedUrl = 'gffs/Sacidocaldarius-2024-curated-coding.gff';
+        const asRnaUrl = 'gffs/nc-as-rnas.gff';
+
+        geneCoordinateIndexPromise = Promise.all([
+          fetch(curatedUrl).then(response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load curated coding annotation: ${response.status}`);
+            }
+            return response.text();
+          }),
+          fetch(asRnaUrl)
+            .then(response => {
+              if (!response.ok) {
+                console.warn(`Failed to load nc-as-rnas annotation: ${response.status}`);
+                return '';
+              }
+              return response.text();
+            })
+            .catch(error => {
+              console.warn('Error loading nc-as-rnas annotation:', error);
+              return '';
+            })
+        ])
+          .then(([curatedText, ncAsRnasText]) => {
+            const byGene = new Map();
+            const byOldTag = new Map();
+
+            const registerRecord = (record, aliasCandidates, oldTags) => {
+              const expandedAliases = new Set();
+              aliasCandidates.forEach(alias => {
+                if (!alias) {
+                  return;
+                }
+                expandedAliases.add(alias);
+                if (/^SACI_SMALL_CDS_\d+$/i.test(alias)) {
+                  expandedAliases.add(alias.replace(/^SACI_SMALL_/i, ''));
+                }
+              });
+
+              if (expandedAliases.size === 0) {
+                return;
+              }
+
+              const aliasList = Array.from(expandedAliases);
+              const canonicalId = aliasList[0];
+              const normalizedCanonical = normalizeGeneKey(canonicalId);
+              if (!normalizedCanonical) {
+                return;
+              }
+
+              if (!byGene.has(normalizedCanonical)) {
+                byGene.set(normalizedCanonical, record);
+              }
+
+              aliasList.forEach(alias => {
+                const normalizedAlias = normalizeGeneKey(alias);
+                if (!normalizedAlias) {
+                  return;
+                }
+                if (!byGene.has(normalizedAlias)) {
+                  byGene.set(normalizedAlias, record);
+                }
+              });
+
+              oldTags.forEach(oldTag => {
+                const normalizedOld = normalizeGeneKey(oldTag);
+                if (!normalizedOld) {
+                  return;
+                }
+                if (!byOldTag.has(normalizedOld)) {
+                  byOldTag.set(normalizedOld, normalizedCanonical);
+                }
+              });
+            };
+
+            const processGffText = text => {
+              if (!text) {
+                return;
+              }
+              const lines = text.split(/\r?\n/);
+              lines.forEach(line => {
+                if (!line || line.startsWith('#')) {
+                  return;
+                }
+                const cols = line.split('\t');
+                if (cols.length < 9) {
+                  return;
+                }
+                const type = cols[2] ? cols[2].toLowerCase() : '';
+                if (type !== 'gene') {
+                  return;
+                }
+                const startVal = parseInt(cols[3], 10);
+                const endVal = parseInt(cols[4], 10);
+                if (!Number.isFinite(startVal) || !Number.isFinite(endVal)) {
+                  return;
+                }
+                const attributes = {};
+                cols[8].split(';').forEach(pair => {
+                  if (!pair) { return; }
+                  const [rawKey, rawValue] = pair.split('=');
+                  if (!rawKey) { return; }
+                  const key = rawKey.trim();
+                  if (!key) { return; }
+                  let value = rawValue ? rawValue.trim() : '';
+                  try {
+                    value = decodeURIComponent(value);
+                  } catch (err) {
+                    // keep raw value if decoding fails
+                  }
+                  attributes[key] = value;
+                });
+
+                const aliasCandidates = [];
+                ['locus_tag', 'ID', 'Name', 'gene'].forEach(attrKey => {
+                  const attrValue = attributes[attrKey];
+                  if (attrValue && !aliasCandidates.includes(attrValue)) {
+                    aliasCandidates.push(attrValue);
+                  }
+                });
+
+                if (aliasCandidates.length === 0) {
+                  return;
+                }
+
+                const primaryId = aliasCandidates[0];
+                const start = Math.min(startVal, endVal);
+                const end = Math.max(startVal, endVal);
+                const record = {
+                  locus_tag: primaryId,
+                  seqid: cols[0],
+                  start,
+                  end,
+                  strand: cols[6] || '',
+                  name: attributes.Name || ''
+                };
+
+                const oldTagValue = attributes.old_locus_tag || '';
+                const oldTags = oldTagValue
+                  ? oldTagValue.split(',').map(tag => tag.trim()).filter(Boolean)
+                  : [];
+
+                if (oldTags.length > 0 && !record.old_locus_tag) {
+                  record.old_locus_tag = oldTags[0];
+                }
+
+                registerRecord(record, aliasCandidates, oldTags);
+              });
+            };
+
+            processGffText(curatedText);
+            processGffText(ncAsRnasText);
+
+            geneCoordinateIndex = { byGene, byOldTag };
+            return geneCoordinateIndex;
+          })
+          .catch(error => {
+            console.error('Error loading genome navigation annotations:', error);
+            geneCoordinateIndexPromise = null;
+            throw error;
+          });
+
+        return geneCoordinateIndexPromise;
+      }
+
+      function loadTabFileList() {
+        if (tabFileListPromise) {
+          return tabFileListPromise;
+        }
+
+        tabFileListPromise = fetch('data/tabFiles.json')
+          .then(response => response.json())
+          .then(fileList => {
+            dataFiles = fileList.map(fileName => ({
+              filename: fileName,
+              data: null,
+              geneColumn: null,
+              oldLocusColumn: null,
+              loadingPromise: null
+            }));
+            updateTableList();
+          })
+          .catch(error => {
+            console.error('Error loading expression file list:', error);
+            tabFileListPromise = null;
+            throw error;
+          });
+
+        return tabFileListPromise;
+      }
+
+      function ensureFileDataLoaded(fileObj) {
+        if (!fileObj || fileObj.data) {
+          return Promise.resolve(fileObj);
+        }
+
+        if (fileObj.loadingPromise) {
+          return fileObj.loadingPromise;
+        }
+
+        fileObj.loadingPromise = fetch(fileObj.filename)
+          .then(response => response.text())
+          .then(text => {
+            const delimiter = text.includes('\t') ? '\t' : ',';
+            const parsed = Papa.parse(text, { header: true, delimiter: delimiter, dynamicTyping: true });
+            const records = Array.isArray(parsed.data) ? parsed.data.filter(row => row && Object.keys(row).length) : [];
+            fileObj.data = records;
+            const headers = parsed.meta && Array.isArray(parsed.meta.fields) && parsed.meta.fields.length
+              ? parsed.meta.fields
+              : (records[0] ? Object.keys(records[0]) : []);
+            if (headers.length > 0) {
+              const normalizedHeaders = headers.map(h => (h ? h.toLowerCase().trim() : ''));
+              const geneHeaderIndex = normalizedHeaders.findIndex(h => h === 'gene');
+              fileObj.geneColumn = geneHeaderIndex >= 0 ? headers[geneHeaderIndex] : headers[0];
+              const oldHeaderIndex = normalizedHeaders.findIndex(h => h === 'old_locus_tag');
+              fileObj.oldLocusColumn = oldHeaderIndex >= 0 ? headers[oldHeaderIndex] : null;
+            }
+            return fileObj;
+          })
+          .catch(error => {
+            console.error(`Error loading expression file ${fileObj.filename}:`, error);
+            fileObj.data = [];
+            throw error;
+          })
+          .finally(() => {
+            fileObj.loadingPromise = null;
+          });
+
+        return fileObj.loadingPromise;
+      }
+
+      function preloadTabFiles() {
+        if (expressionDataPromise) {
+          return expressionDataPromise;
+        }
+
+        expressionDataPromise = Promise.all([
+          loadTabFileList(),
+          loadGeneIndex()
+        ]).catch(error => {
+          expressionDataPromise = null;
+          throw error;
+        });
+
+        return expressionDataPromise;
       }
       function arcog_populateAutocomplete() {
         const datalist = document.getElementById('arcog_geneList');
@@ -1260,6 +808,24 @@
         arcog_populateDropdown();
         arcog_populateAutocomplete();
       }
+
+      function loadArCOGResources() {
+        if (arcogDataPromise) {
+          return arcogDataPromise;
+        }
+
+        arcogDataPromise = Promise.all([loadGFFData(), loadArCOGData(), loadSulfoCogData(), loadArCOGNamesData()])
+          .then(() => {
+            arcog_buildGlobalMapping();
+          })
+          .catch(error => {
+            console.error('Error preparing arCOG data:', error);
+            arcogDataPromise = null;
+            throw error;
+          });
+
+        return arcogDataPromise;
+      }
       function arcog_populateDropdown() {
         const dropdown = document.getElementById('arcog_annotationDropdown');
         dropdown.innerHTML = '<option value="ALL">All codes</option>';
@@ -1313,7 +879,13 @@
 
         table.style.display = "table";
       }
-      function arcog_filterByAnnotationCode() {
+      async function arcog_filterByAnnotationCode() {
+        try {
+          await loadArCOGResources();
+        } catch (error) {
+          document.getElementById('arcog_filterMessage').textContent = 'Failed to load arCOG reference data.';
+          return;
+        }
         const selectedOptions = Array.from(document.getElementById('arcog_annotationDropdown').selectedOptions).map(opt => opt.value);
         let filtered = [];
         if (selectedOptions.includes("ALL")) {
@@ -1439,13 +1011,24 @@
         if (file) {
           loadDESeq2File(file).then(() => {
             document.getElementById('arcog_searchMessage').textContent = "DESeq2 data loaded successfully.";
-            arcog_buildGlobalMapping();
+            loadArCOGResources()
+              .then(() => {
+                arcog_buildGlobalMapping();
+              })
+              .catch(() => {
+                document.getElementById('arcog_filterMessage').textContent = 'Unable to refresh arCOG reference data.';
+                arcog_buildGlobalMapping();
+              });
           });
         }
       });
       function ensureIgvBrowser() {
         if (window.igvBrowser) {
-          return;
+          return Promise.resolve(window.igvBrowser);
+        }
+
+        if (igvBrowserPromise) {
+          return igvBrowserPromise;
         }
 
         const igvOptions = {
@@ -1553,25 +1136,36 @@
           ]
         };
 
-        igv.createBrowser(document.getElementById("igvContainer"), igvOptions).then(browser => {
-          window.igvBrowser = browser;
-          console.log("IGV browser created");
-        });
+        igvBrowserPromise = igv.createBrowser(document.getElementById("igvContainer"), igvOptions)
+          .then(browser => {
+            window.igvBrowser = browser;
+            console.log("IGV browser created");
+            return browser;
+          })
+          .catch(error => {
+            console.error('Error creating IGV browser:', error);
+            igvBrowserPromise = null;
+            throw error;
+          });
+
+        return igvBrowserPromise;
       }
 
       const tabConfigs = [
         { buttonId: 'viewerTabBtn', contentId: 'viewerTab' },
-        { buttonId: 'tablesTabBtn', contentId: 'tablesTab' },
-        { buttonId: 'pairsTabBtn', contentId: 'pairsTab' },
+        { buttonId: 'tablesTabBtn', contentId: 'tablesTab', onShow: () => preloadTabFiles().catch(() => { /* handled elsewhere */ }) },
+        { buttonId: 'pairsTabBtn', contentId: 'pairsTab', onShow: () => loadPairsData().catch(() => { /* handled elsewhere */ }) },
         { buttonId: 'genomeViewerTabBtn', contentId: 'genomeViewerTab', onShow: ensureIgvBrowser },
-        { buttonId: 'motifsTabBtn', contentId: 'motifsTab' },
-        { buttonId: 'arCOGAnalysisBtn', contentId: 'arCOGAnalysisTab' },
+        { buttonId: 'motifsTabBtn', contentId: 'motifsTab', onShow: ensureMotifsInitialized },
+        { buttonId: 'arCOGAnalysisBtn', contentId: 'arCOGAnalysisTab', onShow: () => loadArCOGResources().catch(() => { /* handled elsewhere */ }) },
         { buttonId: 'resourcesTabBtn', contentId: 'resourcesTab' }
       ].map(config => ({
         ...config,
         button: document.getElementById(config.buttonId),
         content: document.getElementById(config.contentId)
       })).filter(config => config.button && config.content);
+
+      const genomeTabConfig = tabConfigs.find(config => config.buttonId === 'genomeViewerTabBtn') || null;
 
       let activeTabConfig = null;
 
@@ -1590,6 +1184,63 @@
         }
       }
 
+      async function navigateToGenomeBrowserForGene(gene, oldLocusTag) {
+        if (!gene) {
+          return;
+        }
+
+        let coordinateIndex;
+        try {
+          coordinateIndex = await ensureGeneCoordinateIndex();
+        } catch (error) {
+          alert('Unable to load gene coordinates from the curated annotation.');
+          return;
+        }
+
+        const normalizedGene = normalizeGeneKey(gene);
+        let targetRecord = normalizedGene ? coordinateIndex.byGene.get(normalizedGene) : null;
+
+        if (!targetRecord && oldLocusTag) {
+          const normalizedOld = normalizeGeneKey(oldLocusTag);
+          const canonicalKey = normalizedOld ? coordinateIndex.byOldTag.get(normalizedOld) : null;
+          if (canonicalKey) {
+            targetRecord = coordinateIndex.byGene.get(canonicalKey) || null;
+          }
+        }
+
+        if (!targetRecord) {
+          alert('Coordinates for this feature were not found in the available annotations.');
+          return;
+        }
+
+        if (!genomeTabConfig) {
+          alert('The genome browser tab is unavailable.');
+          return;
+        }
+
+        activateTab(genomeTabConfig);
+
+        let browser;
+        try {
+          browser = await ensureIgvBrowser();
+        } catch (error) {
+          alert('Unable to initialize the genome browser. Please try again.');
+          return;
+        }
+
+        const padding = 100;
+        const start = Math.max(1, Math.min(targetRecord.start, targetRecord.end) - padding);
+        const end = Math.max(targetRecord.start, targetRecord.end) + padding;
+        const locusString = `${targetRecord.seqid}:${start}-${end}`;
+
+        try {
+          await browser.search(locusString);
+        } catch (error) {
+          console.error('Genome browser navigation failed:', error);
+          alert('Unable to navigate to the requested locus in the genome browser.');
+        }
+      }
+
       tabConfigs.forEach(config => {
         config.button.addEventListener('click', () => activateTab(config));
       });
@@ -1599,39 +1250,258 @@
         activateTab(initialTab);
       }
 
+      preloadTabFiles()
+        .then(() => {
+          initializeDefaultExpressionGene();
+        })
+        .catch(() => { /* errors already logged */ });
 
-      /* -------------------- asRNA/mRNA Pairs Tab: load pairs data -------------------- */
-      function loadPairsData() {
-        const uploadStatusPairs = document.getElementById('uploadStatusPairs');
-        Promise.all([
-          fetch('data/correlation.txt').then(response => response.text()),
-          fetch('data/expression.txt').then(response => response.text())
-        ]).then(([corrText, exprText]) => {
-          Papa.parse(corrText, {
-            header: true, delimiter: "\t", dynamicTyping: true, complete: function (results) {
-              window.correlationDataPairs = results.data.filter(row => row.Gene);
-              checkPairsReady();
-            }
+      syncExpressionGenomeButtonState();
+      syncPairsGenomeButtonState();
+
+      const conditionInfoModal = document.getElementById('conditionInfoModal');
+      const conditionInfoContent = document.getElementById('conditionInfoContent');
+      let lastConditionInfoTrigger = null;
+      const arcogFormatModal = document.getElementById('arcogFormatModal');
+      const arcogFormatInfoButton = document.getElementById('arcogFormatInfoButton');
+      let lastArcogFormatTrigger = null;
+
+      function renderConditionInfo() {
+        if (!conditionInfoContent) {
+          return;
+        }
+        conditionInfoContent.innerHTML = '';
+        if (!conditionInfoGroups.length) {
+          conditionInfoContent.textContent = 'Condition descriptions are not available.';
+          return;
+        }
+        conditionInfoGroups.forEach(group => {
+          const groupWrapper = document.createElement('div');
+          groupWrapper.className = 'condition-group';
+
+          const heading = document.createElement('h3');
+          heading.textContent = group.title;
+          groupWrapper.appendChild(heading);
+
+          const list = document.createElement('ul');
+          list.className = 'condition-list';
+
+          group.entries.forEach(entry => {
+            const listItem = document.createElement('li');
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'condition-label';
+            labelSpan.textContent = entry.labels.join(' / ');
+            listItem.appendChild(labelSpan);
+
+            const descriptionSpan = document.createElement('span');
+            descriptionSpan.textContent = ` – ${entry.description}`;
+            listItem.appendChild(descriptionSpan);
+
+            list.appendChild(listItem);
           });
-          Papa.parse(exprText, {
-            header: true, delimiter: "\t", dynamicTyping: true, complete: function (results) {
-              window.expressionDataPairs = results.data.filter(row => row.Gene);
-              checkPairsReady();
-            }
-          });
-        }).catch(error => {
-          uploadStatusPairs.textContent = "Error loading data: " + error;
+
+          groupWrapper.appendChild(list);
+          conditionInfoContent.appendChild(groupWrapper);
         });
       }
 
-      function checkPairsReady() {
-        if (window.correlationDataPairs && window.expressionDataPairs) {
+      function openConditionInfoModal(triggerEvent) {
+        if (!conditionInfoModal) {
+          return;
+        }
+        if (triggerEvent && triggerEvent.currentTarget) {
+          lastConditionInfoTrigger = triggerEvent.currentTarget;
+        }
+        renderConditionInfo();
+        conditionInfoModal.style.display = 'block';
+        conditionInfoModal.setAttribute('aria-hidden', 'false');
+        const closeButton = conditionInfoModal.querySelector('.close');
+        if (closeButton) {
+          closeButton.focus();
+        }
+      }
+
+      function hideConditionInfoModal() {
+        if (!conditionInfoModal) {
+          return;
+        }
+        conditionInfoModal.style.display = 'none';
+        conditionInfoModal.setAttribute('aria-hidden', 'true');
+        if (lastConditionInfoTrigger) {
+          lastConditionInfoTrigger.focus();
+          lastConditionInfoTrigger = null;
+        }
+      }
+
+      function showArcogFormatModal(triggerEvent) {
+        if (!arcogFormatModal) {
+          return;
+        }
+        if (triggerEvent && triggerEvent.currentTarget) {
+          lastArcogFormatTrigger = triggerEvent.currentTarget;
+        }
+        arcogFormatModal.style.display = 'block';
+        arcogFormatModal.setAttribute('aria-hidden', 'false');
+        const closeButton = arcogFormatModal.querySelector('.close');
+        if (closeButton) {
+          closeButton.focus();
+        }
+      }
+
+      function hideArcogFormatModal() {
+        if (!arcogFormatModal) {
+          return;
+        }
+        arcogFormatModal.style.display = 'none';
+        arcogFormatModal.setAttribute('aria-hidden', 'true');
+        if (lastArcogFormatTrigger) {
+          lastArcogFormatTrigger.focus();
+          lastArcogFormatTrigger = null;
+        }
+      }
+
+      const conditionInfoButtons = [
+        document.getElementById('expressionInfoButton'),
+        document.getElementById('pairsInfoButton')
+      ];
+
+      conditionInfoButtons.forEach(button => {
+        if (button) {
+          button.addEventListener('click', openConditionInfoModal);
+        }
+      });
+
+      if (arcogFormatInfoButton) {
+        arcogFormatInfoButton.addEventListener('click', showArcogFormatModal);
+      }
+
+      if (expressionGenomeButton) {
+        expressionGenomeButton.addEventListener('click', async () => {
+          if (!lastPlottedExpressionGene) {
+            return;
+          }
+          expressionGenomeButton.disabled = true;
+          try {
+            await navigateToGenomeBrowserForGene(lastPlottedExpressionGene, lastPlottedExpressionOldLocus);
+          } finally {
+            syncExpressionGenomeButtonState();
+          }
+        });
+      }
+
+      if (pairsGenomeButton) {
+        pairsGenomeButton.addEventListener('click', async () => {
+          if (!lastPlottedPairsGene) {
+            return;
+          }
+          pairsGenomeButton.disabled = true;
+          try {
+            await navigateToGenomeBrowserForGene(lastPlottedPairsGene, lastPlottedPairsOldLocus);
+          } finally {
+            syncPairsGenomeButtonState();
+          }
+        });
+      }
+
+      if (conditionInfoModal) {
+        const conditionCloseButton = conditionInfoModal.querySelector('.close');
+        if (conditionCloseButton) {
+          conditionCloseButton.addEventListener('click', hideConditionInfoModal);
+        }
+      }
+
+      if (arcogFormatModal) {
+        const arcogFormatCloseButton = arcogFormatModal.querySelector('.close');
+        if (arcogFormatCloseButton) {
+          arcogFormatCloseButton.addEventListener('click', hideArcogFormatModal);
+        }
+      }
+
+      window.addEventListener('click', event => {
+        if (conditionInfoModal && event.target === conditionInfoModal) {
+          hideConditionInfoModal();
+        }
+        if (arcogFormatModal && event.target === arcogFormatModal) {
+          hideArcogFormatModal();
+        }
+      });
+
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          if (conditionInfoModal && conditionInfoModal.style.display === 'block') {
+            hideConditionInfoModal();
+          }
+          if (arcogFormatModal && arcogFormatModal.style.display === 'block') {
+            hideArcogFormatModal();
+          }
+        }
+      });
+
+
+      /* -------------------- asRNA/mRNA Pairs Tab: load pairs data -------------------- */
+      function loadPairsData() {
+        if (pairsDataPromise) {
+          return pairsDataPromise;
+        }
+
+        const uploadStatusPairs = document.getElementById('uploadStatusPairs');
+
+        pairsDataPromise = Promise.all([
+          fetch('data/correlation.txt').then(response => response.text()),
+          fetch('data/expression.txt').then(response => response.text())
+        ]).then(([corrText, exprText]) => {
+          return Promise.all([
+            new Promise((resolve, reject) => {
+              Papa.parse(corrText, {
+                header: true,
+                delimiter: "\t",
+                dynamicTyping: true,
+                complete(results) {
+                  window.correlationDataPairs = results.data.filter(row => row.Gene);
+                  resolve();
+                },
+                error(err) {
+                  reject(err);
+                }
+              });
+            }),
+            new Promise((resolve, reject) => {
+              Papa.parse(exprText, {
+                header: true,
+                delimiter: "\t",
+                dynamicTyping: true,
+                complete(results) {
+                  window.expressionDataPairs = results.data.filter(row => row.Gene);
+                  resolve();
+                },
+                error(err) {
+                  reject(err);
+                }
+              });
+            })
+          ]);
+        }).then(() => {
           buildGeneListPairs();
-          setupGeneNavigationPairs();
+          if (!pairsNavigationInitialized) {
+            setupGeneNavigationPairs();
+            pairsNavigationInitialized = true;
+          }
           if (geneListPairs.length > 0) {
             updatePairsDisplayForGene(geneListPairs[0]);
           }
-        }
+          if (uploadStatusPairs) {
+            uploadStatusPairs.textContent = '';
+          }
+        }).catch(error => {
+          console.error('Error loading asRNA/mRNA pairs data:', error);
+          if (uploadStatusPairs) {
+            uploadStatusPairs.textContent = "Error loading data: " + error;
+          }
+          pairsDataPromise = null;
+          throw error;
+        });
+
+        return pairsDataPromise;
       }
 
       function refreshPairsOldLocusMappings() {
@@ -1823,8 +1693,13 @@
 
       function updatePairsExpressionChart(gene) {
         const geneRows = window.expressionDataPairs.filter(row => row.Gene === gene);
+        const pairsHeadingElement = document.getElementById('pairsChartTitle');
         if (geneRows.length === 0) {
           if (pairsChart) { pairsChart.destroy(); }
+          if (pairsHeadingElement) { pairsHeadingElement.textContent = ''; }
+          lastPlottedPairsGene = null;
+          lastPlottedPairsOldLocus = null;
+          syncPairsGenomeButtonState();
           return;
         }
         let experiments = Array.from(new Set(geneRows.map(row => row.Experiment)));
@@ -1879,7 +1754,25 @@
 
         if (pairsChart) { pairsChart.destroy(); }
 
-        const titleText = resolvedOldLocusTag ? `${gene} (${resolvedOldLocusTag})` : gene;
+        const geneInfoLink = `https://www.ncbi.nlm.nih.gov/gene/?term=${encodeURIComponent(gene)}`;
+        if (pairsHeadingElement) {
+          pairsHeadingElement.textContent = '';
+          pairsHeadingElement.appendChild(document.createTextNode('asRNA/mRNA Expression for '));
+          const link = document.createElement('a');
+          link.href = geneInfoLink;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.className = 'chart-title-link';
+          link.textContent = gene;
+          pairsHeadingElement.appendChild(link);
+          if (resolvedOldLocusTag) {
+            pairsHeadingElement.appendChild(document.createTextNode(` (${resolvedOldLocusTag})`));
+          }
+        }
+
+        lastPlottedPairsGene = gene;
+        lastPlottedPairsOldLocus = resolvedOldLocusTag || null;
+        syncPairsGenomeButtonState();
 
         pairsChart = new ApexCharts(document.querySelector("#pairsChartCanvas"), {
           chart: { type: 'bar', animations: { easing: 'easeOutQuart', speed: 800 } },
@@ -1913,7 +1806,7 @@
             </div>`;
             }
           },
-          title: { text: titleText, style: { fontSize: '20px', color: '#e0e0e0' } },
+          title: { text: '' },
           plotOptions: { bar: { borderRadius: 4, horizontal: false } },
           dataLabels: { enabled: false },
           legend: { show: false }
@@ -1921,63 +1814,46 @@
         pairsChart.render();
       }
       function updateGeneList() {
-        const geneSet = new Set();
+        if (!Array.isArray(geneIndexEntries) || geneIndexEntries.length === 0) {
+          return;
+        }
         geneLookupMap = new Map();
         geneOldLocusMap = new Map();
-        dataFiles.forEach(fileObj => {
-          fileObj.data.forEach(row => {
-            const geneVal = row[fileObj.geneColumn];
-            if (geneVal !== undefined && geneVal !== null && geneVal !== "") {
-              geneSet.add(geneVal);
-              const normalizedGene = normalizeGeneKey(geneVal);
-              if (!geneLookupMap.has(normalizedGene)) {
-                geneLookupMap.set(normalizedGene, geneVal);
-              }
-              let oldTag = null;
-              if (fileObj.oldLocusColumn) {
-                const candidate = row[fileObj.oldLocusColumn];
-                if (candidate !== undefined && candidate !== null) {
-                  const trimmed = String(candidate).trim();
-                  if (trimmed !== "") {
-                    oldTag = trimmed;
-                  }
-                }
-              } else {
-                const fallbackKey = Object.keys(row).find(k => k && k.toLowerCase().trim() === "old_locus_tag");
-                if (fallbackKey) {
-                  const candidate = row[fallbackKey];
-                  if (candidate !== undefined && candidate !== null) {
-                    const trimmed = String(candidate).trim();
-                    if (trimmed !== "") {
-                      oldTag = trimmed;
-                    }
-                  }
-                }
-              }
-              if (oldTag) {
-                if (!geneOldLocusMap.has(geneVal)) {
-                  geneOldLocusMap.set(geneVal, oldTag);
-                }
-                const normalizedOld = normalizeGeneKey(oldTag);
-                if (!geneLookupMap.has(normalizedOld)) {
-                  geneLookupMap.set(normalizedOld, geneVal);
-                }
-              }
-            }
-          });
-        });
-        geneArray = Array.from(geneSet).sort();
-        const datalist = document.getElementById('geneList');
-        datalist.innerHTML = "";
-        geneArray.forEach(gene => {
-          const option = document.createElement('option');
-          option.value = gene;
-          const oldTag = geneOldLocusMap.get(gene);
-          if (oldTag) {
-            option.label = `${gene} (${oldTag})`;
+        const orderedGenes = [];
+        geneIndexEntries.forEach(entry => {
+          if (!entry) { return; }
+          const geneVal = entry.gene ? String(entry.gene).trim() : '';
+          if (!geneVal) { return; }
+          orderedGenes.push(geneVal);
+          const normalizedGene = normalizeGeneKey(geneVal);
+          if (!geneLookupMap.has(normalizedGene)) {
+            geneLookupMap.set(normalizedGene, geneVal);
           }
-          datalist.appendChild(option);
+          const oldTag = entry.old_locus_tag ? String(entry.old_locus_tag).trim() : '';
+          if (oldTag) {
+            if (!geneOldLocusMap.has(geneVal)) {
+              geneOldLocusMap.set(geneVal, oldTag);
+            }
+            const normalizedOld = normalizeGeneKey(oldTag);
+            if (!geneLookupMap.has(normalizedOld)) {
+              geneLookupMap.set(normalizedOld, geneVal);
+            }
+          }
         });
+        geneArray = Array.from(new Set(orderedGenes)).sort();
+        const datalist = document.getElementById('geneList');
+        if (datalist) {
+          datalist.innerHTML = "";
+          geneArray.forEach(gene => {
+            const option = document.createElement('option');
+            option.value = gene;
+            const oldTag = geneOldLocusMap.get(gene);
+            if (oldTag) {
+              option.label = `${gene} (${oldTag})`;
+            }
+            datalist.appendChild(option);
+          });
+        }
         refreshPairsOldLocusMappings();
       }
       function updateTableList() {
@@ -2036,11 +1912,18 @@
           alert(`File "${filename}" removed.`);
         }
       }
-      function viewTable(filename) {
+      async function viewTable(filename) {
         const tableDisplayDiv = document.getElementById('tableDisplay');
         const fileObj = dataFiles.find(f => f.filename === filename);
         if (!fileObj) {
           tableDisplayDiv.innerHTML = "<p>File not found.</p>";
+          return;
+        }
+        tableDisplayDiv.innerHTML = "<p>Loading table...</p>";
+        try {
+          await ensureFileDataLoaded(fileObj);
+        } catch (error) {
+          tableDisplayDiv.innerHTML = `<p>Failed to load \"${filename}\".</p>`;
           return;
         }
         if (!fileObj.data || fileObj.data.length === 0) {
@@ -2110,15 +1993,38 @@
         return trimmed === "" ? null : trimmed;
       }
 
-      document.getElementById('plotButton').addEventListener('click', function () {
-        const geneName = document.getElementById('geneInput').value.trim();
-        if (!geneName) {
-          alert("Please enter a gene name.");
+      async function handleExpressionGeneInput(rawValue) {
+        const trimmedValue = rawValue ? rawValue.trim() : "";
+        if (trimmedValue === "") {
           return;
         }
-        plotGene(geneName);
-      });
-      function plotGene(geneIdentifier) {
+        try {
+          await preloadTabFiles();
+        } catch (error) {
+          alert('Failed to load expression tables. Please try again.');
+          return;
+        }
+        await plotGene(trimmedValue);
+      }
+
+      function initializeDefaultExpressionGene() {
+        if (hasPlottedDefaultExpressionGene) {
+          return;
+        }
+        const normalizedDefault = normalizeGeneKey(DEFAULT_EXPRESSION_GENE);
+        if (!normalizedDefault || !geneLookupMap.has(normalizedDefault)) {
+          return;
+        }
+        if (geneInputElement) {
+          geneInputElement.value = DEFAULT_EXPRESSION_GENE;
+        }
+        hasPlottedDefaultExpressionGene = true;
+        handleExpressionGeneInput(DEFAULT_EXPRESSION_GENE).catch(() => {
+          hasPlottedDefaultExpressionGene = false;
+        });
+      }
+
+      async function plotGene(geneIdentifier) {
         const resolvedGene = resolveGeneIdentifier(geneIdentifier);
         if (!resolvedGene) {
           alert("Gene or old locus tag not found in the loaded tables.");
@@ -2133,9 +2039,29 @@
           const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
           return checkbox && checkbox.checked;
         });
+        if (selectedFiles.length === 0) {
+          alert('Please select at least one expression table.');
+          return;
+        }
+        try {
+          await Promise.all(selectedFiles.map(ensureFileDataLoaded));
+        } catch (error) {
+          alert('Failed to load the selected expression tables. Please try again.');
+          return;
+        }
         const seriesData = [];
         selectedFiles.forEach(fileObj => {
-          const record = fileObj.data.find(row => normalizeGeneKey(row[fileObj.geneColumn]) === normalizedGene);
+          if (!fileObj || !Array.isArray(fileObj.data) || fileObj.data.length === 0) {
+            return;
+          }
+          const geneColumn = fileObj.geneColumn || Object.keys(fileObj.data[0] || {})[0];
+          if (!geneColumn) {
+            return;
+          }
+          if (!fileObj.geneColumn) {
+            fileObj.geneColumn = geneColumn;
+          }
+          const record = fileObj.data.find(row => normalizeGeneKey(row[geneColumn]) === normalizedGene);
           if (record) {
             if (!resolvedOldLocusTag) {
               const rowOldTag = extractOldLocusTag(record, fileObj);
@@ -2159,7 +2085,28 @@
           return;
         }
         if (chart) { chart.destroy(); }
-        const titleText = resolvedOldLocusTag ? `Differential Expression for ${resolvedGene} (${resolvedOldLocusTag})` : `Differential Expression for ${resolvedGene}`;
+        const displayGeneText = resolvedOldLocusTag ? `${resolvedGene} (${resolvedOldLocusTag})` : resolvedGene;
+        const geneInfoLink = `https://www.ncbi.nlm.nih.gov/gene/?term=${encodeURIComponent(resolvedGene)}`;
+        const chartHeadingElement = document.getElementById('expressionChartTitle');
+        if (chartHeadingElement) {
+          chartHeadingElement.textContent = '';
+          chartHeadingElement.appendChild(document.createTextNode('Differential Expression for '));
+          const link = document.createElement('a');
+          link.href = geneInfoLink;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.className = 'chart-title-link';
+          link.textContent = resolvedGene;
+          chartHeadingElement.appendChild(link);
+          if (resolvedOldLocusTag) {
+            chartHeadingElement.appendChild(document.createTextNode(` (${resolvedOldLocusTag})`));
+          }
+        }
+
+        lastPlottedExpressionGene = resolvedGene;
+        lastPlottedExpressionOldLocus = resolvedOldLocusTag || null;
+        syncExpressionGenomeButtonState();
+
         chart = new ApexCharts(document.querySelector("#chartCanvas"), {
           chart: {
             type: 'bar',
@@ -2184,8 +2131,7 @@
             axisTicks: { color: '#555' }
           },
           title: {
-            text: titleText,
-            style: { fontSize: '20px', color: '#e0e0e0' }
+            text: ''
           },
           plotOptions: { bar: { borderRadius: 4, distributed: true } },
           colors: seriesData.map(dp => (dp.pvalue !== undefined && dp.pvalue <= 0.05) ? "#4fc3f7" : "#ffb74d"),
@@ -2210,7 +2156,17 @@
         chart.render();
         window.scrollTo(0, savedScrollPos);
       }
-      document.getElementById('nextGene').addEventListener('click', function () {
+      document.getElementById('nextGene').addEventListener('click', async function () {
+        try {
+          await preloadTabFiles();
+        } catch (error) {
+          alert('Failed to load expression tables. Please try again.');
+          return;
+        }
+        if (geneArray.length === 0) {
+          alert('No expression tables are available.');
+          return;
+        }
         let currentGene = document.getElementById('geneInput').value.trim();
         let currentIndex = geneArray.indexOf(currentGene);
         if (currentIndex === -1 || currentIndex === geneArray.length - 1) {
@@ -2219,9 +2175,19 @@
           currentIndex++;
         }
         document.getElementById('geneInput').value = geneArray[currentIndex];
-        plotGene(geneArray[currentIndex]);
+        await plotGene(geneArray[currentIndex]);
       });
-      document.getElementById('prevGene').addEventListener('click', function () {
+      document.getElementById('prevGene').addEventListener('click', async function () {
+        try {
+          await preloadTabFiles();
+        } catch (error) {
+          alert('Failed to load expression tables. Please try again.');
+          return;
+        }
+        if (geneArray.length === 0) {
+          alert('No expression tables are available.');
+          return;
+        }
         let currentGene = document.getElementById('geneInput').value.trim();
         let currentIndex = geneArray.indexOf(currentGene);
         if (currentIndex === -1 || currentIndex === 0) {
@@ -2230,24 +2196,104 @@
           currentIndex--;
         }
         document.getElementById('geneInput').value = geneArray[currentIndex];
-        plotGene(geneArray[currentIndex]);
+        await plotGene(geneArray[currentIndex]);
       });
       /* -------------------- End of Viewer and Pairs Code -------------------- */
-      Promise.all([loadGFFData(), loadArCOGData(), loadSulfoCogData(), loadArCOGNamesData()]).then(() => {
-        arcog_buildGlobalMapping();
-      });
-      preloadTabFiles();
-      loadPairsData();
 
-      const motifSections = [1, 2, 3, 4];
-      motifSections.forEach(section => {
-        loadFasta(`sequences/MEME-${section}.fa`, `fastaSelect${section}`, `sequenceDisplay${section}`);
-        registerCopyButtons(section);
-      });
+      const motifConfigs = [
+        { svg: 'svg/motif-1-weblogo.svg', fasta: 'sequences/MEME-1.fa', alt: 'Processing site motif 1' },
+        { svg: 'svg/motif-2-weblogo.svg', fasta: 'sequences/MEME-2.fa', alt: 'Processing site motif 2' },
+        { svg: 'svg/motif-3-weblogo.svg', fasta: 'sequences/MEME-3.fa', alt: 'Processing site motif 3' },
+        { svg: 'svg/motif-4-weblogo.svg', fasta: 'sequences/MEME-4.fa', alt: 'Processing site motif 4' }
+      ];
+
+      function ensureMotifsInitialized() {
+        if (motifsInitialized) {
+          return;
+        }
+        const motifsContainer = document.getElementById('motifsContainer');
+        if (!motifsContainer) {
+          return;
+        }
+        motifConfigs.forEach((config, index) => {
+          const section = createMotifSection(config, index + 1);
+          motifsContainer.appendChild(section);
+        });
+        motifsInitialized = true;
+      }
+
+      function createMotifSection(config, index) {
+        const section = document.createElement('div');
+        section.className = 'section';
+
+        const sectionTop = document.createElement('div');
+        sectionTop.className = 'section-top';
+
+        const svgWrapper = document.createElement('div');
+        svgWrapper.className = 'svg-wrapper';
+
+        const image = document.createElement('img');
+        image.src = config.svg;
+        image.alt = config.alt || `Processing site motif ${index}`;
+        svgWrapper.appendChild(image);
+
+        sectionTop.appendChild(svgWrapper);
+
+        const sectionBottom = document.createElement('div');
+        sectionBottom.className = 'section-bottom';
+
+        const select = document.createElement('select');
+        sectionBottom.appendChild(select);
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'btn-container';
+
+        const copyCoordinatesButton = document.createElement('button');
+        copyCoordinatesButton.type = 'button';
+        copyCoordinatesButton.textContent = 'Copy Coordinates';
+
+        const copySequenceButton = document.createElement('button');
+        copySequenceButton.type = 'button';
+        copySequenceButton.textContent = 'Copy Sequence';
+
+        buttonContainer.appendChild(copyCoordinatesButton);
+        buttonContainer.appendChild(copySequenceButton);
+
+        const sequenceDisplay = document.createElement('pre');
+
+        sectionBottom.appendChild(buttonContainer);
+        sectionBottom.appendChild(sequenceDisplay);
+
+        section.appendChild(sectionTop);
+        section.appendChild(sectionBottom);
+
+        loadFasta(config.fasta, select, sequenceDisplay);
+
+        copyCoordinatesButton.addEventListener('click', () => {
+          const header = select.value;
+          const coords = extractCoordinates(header);
+          navigator.clipboard.writeText(coords).then(() => {
+            alert('Coordinates copied: ' + coords);
+          }).catch(err => {
+            console.error('Failed to copy coordinates', err);
+          });
+        });
+
+        copySequenceButton.addEventListener('click', () => {
+          const sequence = sequenceDisplay.textContent;
+          navigator.clipboard.writeText(sequence).then(() => {
+            alert('Sequence copied.');
+          }).catch(err => {
+            console.error('Failed to copy sequence', err);
+          });
+        });
+
+        return section;
+      }
 
       const modal = document.getElementById('modalHelp');
       const helpBtn = document.getElementById('helpButton');
-      const closeSpan = document.querySelector('.modal .close');
+      const closeSpan = document.querySelector('#modalHelp .close');
       const saveBtn = document.getElementById('saveTable');
       const legendContainer = document.getElementById('legendTableContainer');
 
@@ -2267,7 +2313,7 @@
                 return;
               }
 
-              let tableHTML = '<table border="1" cellspacing="0" cellpadding="5" style="width: 100%;">';
+              let tableHTML = '<table border="1" cellspacing="0" cellpadding="5">';
               const headers = lines[0].split('\t');
               tableHTML += '<thead><tr>';
               headers.forEach(header => {
@@ -2318,23 +2364,25 @@
       }
     });
 
-    async function loadFasta(file, selectId, displayId) {
+    async function loadFasta(file, selectElement, displayElement) {
       try {
         const response = await fetch(file);
         const text = await response.text();
         const sequences = parseFasta(text);
-        const select = document.getElementById(selectId);
-        for (let header in sequences) {
+        selectElement.innerHTML = '';
+        Object.keys(sequences).forEach(header => {
           const option = document.createElement('option');
           option.value = header;
           option.textContent = header;
-          select.appendChild(option);
+          selectElement.appendChild(option);
+        });
+        if (selectElement.value) {
+          displayElement.textContent = sequences[selectElement.value];
+        } else {
+          displayElement.textContent = '';
         }
-        if (select.value) {
-          document.getElementById(displayId).textContent = sequences[select.value];
-        }
-        select.addEventListener('change', function () {
-          document.getElementById(displayId).textContent = sequences[this.value];
+        selectElement.addEventListener('change', function () {
+          displayElement.textContent = sequences[this.value] || '';
         });
       } catch (error) {
         console.error('Error loading FASTA file:', file, error);
@@ -2360,30 +2408,6 @@
     function extractCoordinates(header) {
       const match = header.match(/:(\d+-\d+)/);
       return match ? match[1] : "";
-    }
-
-    function registerCopyButtons(sectionNum) {
-      const select = document.getElementById('fastaSelect' + sectionNum);
-      const pre = document.getElementById('sequenceDisplay' + sectionNum);
-      const copyCoordBtn = document.getElementById('copyCoord' + sectionNum);
-      const copySeqBtn = document.getElementById('copySeq' + sectionNum);
-      copyCoordBtn.addEventListener('click', () => {
-        const header = select.value;
-        const coords = extractCoordinates(header);
-        navigator.clipboard.writeText(coords).then(() => {
-          alert('Coordinates copied: ' + coords);
-        }).catch(err => {
-          console.error('Failed to copy coordinates', err);
-        });
-      });
-      copySeqBtn.addEventListener('click', () => {
-        const sequence = pre.textContent;
-        navigator.clipboard.writeText(sequence).then(() => {
-          alert('Sequence copied.');
-        }).catch(err => {
-          console.error('Failed to copy sequence', err);
-        });
-      });
     }
 
     function exportTableToCSV(tableHTML, filename) {
