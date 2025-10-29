@@ -252,6 +252,9 @@
       let pairsGeneLookupMap = new Map();
       let pairsGeneOldLocusMap = new Map();
       let expressionDataPromise = null;
+      let tabFileListPromise = null;
+      let geneIndexPromise = null;
+      let geneIndexEntries = [];
       let pairsDataPromise = null;
       let arcogDataPromise = null;
       let motifsInitialized = false;
@@ -393,40 +396,113 @@
       function shortenFilename(filename) {
         return filename.replace(/deseq-tabs\/DESeq2_/, "").replace(/deseq-tabs\/DESeq2-/, "").replace(/\.tab$/, "");
       }
+      function loadGeneIndex() {
+        if (geneIndexPromise) {
+          return geneIndexPromise;
+        }
+
+        geneIndexPromise = fetch('data/gene-index.json')
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load gene index: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(entries => {
+            if (!Array.isArray(entries)) {
+              geneIndexEntries = [];
+              return;
+            }
+            geneIndexEntries = entries;
+            updateGeneList();
+          })
+          .catch(error => {
+            console.error('Error loading gene index:', error);
+            geneIndexPromise = null;
+            throw error;
+          });
+
+        return geneIndexPromise;
+      }
+
+      function loadTabFileList() {
+        if (tabFileListPromise) {
+          return tabFileListPromise;
+        }
+
+        tabFileListPromise = fetch('data/tabFiles.json')
+          .then(response => response.json())
+          .then(fileList => {
+            dataFiles = fileList.map(fileName => ({
+              filename: fileName,
+              data: null,
+              geneColumn: null,
+              oldLocusColumn: null,
+              loadingPromise: null
+            }));
+            updateTableList();
+          })
+          .catch(error => {
+            console.error('Error loading expression file list:', error);
+            tabFileListPromise = null;
+            throw error;
+          });
+
+        return tabFileListPromise;
+      }
+
+      function ensureFileDataLoaded(fileObj) {
+        if (!fileObj || fileObj.data) {
+          return Promise.resolve(fileObj);
+        }
+
+        if (fileObj.loadingPromise) {
+          return fileObj.loadingPromise;
+        }
+
+        fileObj.loadingPromise = fetch(fileObj.filename)
+          .then(response => response.text())
+          .then(text => {
+            const delimiter = text.includes('\t') ? '\t' : ',';
+            const parsed = Papa.parse(text, { header: true, delimiter: delimiter, dynamicTyping: true });
+            const records = Array.isArray(parsed.data) ? parsed.data.filter(row => row && Object.keys(row).length) : [];
+            fileObj.data = records;
+            const headers = parsed.meta && Array.isArray(parsed.meta.fields) && parsed.meta.fields.length
+              ? parsed.meta.fields
+              : (records[0] ? Object.keys(records[0]) : []);
+            if (headers.length > 0) {
+              const normalizedHeaders = headers.map(h => (h ? h.toLowerCase().trim() : ''));
+              const geneHeaderIndex = normalizedHeaders.findIndex(h => h === 'gene');
+              fileObj.geneColumn = geneHeaderIndex >= 0 ? headers[geneHeaderIndex] : headers[0];
+              const oldHeaderIndex = normalizedHeaders.findIndex(h => h === 'old_locus_tag');
+              fileObj.oldLocusColumn = oldHeaderIndex >= 0 ? headers[oldHeaderIndex] : null;
+            }
+            return fileObj;
+          })
+          .catch(error => {
+            console.error(`Error loading expression file ${fileObj.filename}:`, error);
+            fileObj.data = [];
+            throw error;
+          })
+          .finally(() => {
+            fileObj.loadingPromise = null;
+          });
+
+        return fileObj.loadingPromise;
+      }
+
       function preloadTabFiles() {
         if (expressionDataPromise) {
           return expressionDataPromise;
         }
 
-        expressionDataPromise = fetch('data/tabFiles.json')
-          .then(response => response.json())
-          .then(fileList => {
-            dataFiles = [];
-            const promises = fileList.map(fileName => {
-              return fetch(fileName)
-                .then(response => response.text())
-                .then(text => {
-                  let delimiter = text.indexOf(",") > -1 ? "," : "\t";
-                  const parsed = Papa.parse(text, { header: true, delimiter: delimiter, dynamicTyping: true });
-                  if (parsed.data.length === 0) return;
-                  let headers = Object.keys(parsed.data[0]);
-                  let geneColumn = headers.find(h => h.toLowerCase() === "gene") || headers[0];
-                  let oldLocusColumn = headers.find(h => h && h.toLowerCase().trim() === "old_locus_tag");
-                  dataFiles.push({ filename: fileName, data: parsed.data, geneColumn: geneColumn, oldLocusColumn: oldLocusColumn });
-                });
-            });
-            return Promise.all(promises);
-          })
-          .then(() => {
-            updateGeneList();
-            updateTableList();
-            console.log("All .tab files preloaded successfully!");
-          })
-          .catch(error => {
-            console.error("Error preloading .tab files:", error);
-            expressionDataPromise = null;
-            throw error;
-          });
+        expressionDataPromise = Promise.all([
+          loadTabFileList(),
+          loadGeneIndex()
+        ]).catch(error => {
+          expressionDataPromise = null;
+          throw error;
+        });
 
         return expressionDataPromise;
       }
@@ -867,6 +943,9 @@
       if (initialTab) {
         activateTab(initialTab);
       }
+
+      loadGeneIndex().catch(() => { /* errors already logged */ });
+      loadTabFileList().catch(() => { /* errors already logged */ });
 
       const conditionInfoModal = document.getElementById('conditionInfoModal');
       const conditionInfoContent = document.getElementById('conditionInfoContent');
@@ -1339,63 +1418,46 @@
         pairsChart.render();
       }
       function updateGeneList() {
-        const geneSet = new Set();
+        if (!Array.isArray(geneIndexEntries) || geneIndexEntries.length === 0) {
+          return;
+        }
         geneLookupMap = new Map();
         geneOldLocusMap = new Map();
-        dataFiles.forEach(fileObj => {
-          fileObj.data.forEach(row => {
-            const geneVal = row[fileObj.geneColumn];
-            if (geneVal !== undefined && geneVal !== null && geneVal !== "") {
-              geneSet.add(geneVal);
-              const normalizedGene = normalizeGeneKey(geneVal);
-              if (!geneLookupMap.has(normalizedGene)) {
-                geneLookupMap.set(normalizedGene, geneVal);
-              }
-              let oldTag = null;
-              if (fileObj.oldLocusColumn) {
-                const candidate = row[fileObj.oldLocusColumn];
-                if (candidate !== undefined && candidate !== null) {
-                  const trimmed = String(candidate).trim();
-                  if (trimmed !== "") {
-                    oldTag = trimmed;
-                  }
-                }
-              } else {
-                const fallbackKey = Object.keys(row).find(k => k && k.toLowerCase().trim() === "old_locus_tag");
-                if (fallbackKey) {
-                  const candidate = row[fallbackKey];
-                  if (candidate !== undefined && candidate !== null) {
-                    const trimmed = String(candidate).trim();
-                    if (trimmed !== "") {
-                      oldTag = trimmed;
-                    }
-                  }
-                }
-              }
-              if (oldTag) {
-                if (!geneOldLocusMap.has(geneVal)) {
-                  geneOldLocusMap.set(geneVal, oldTag);
-                }
-                const normalizedOld = normalizeGeneKey(oldTag);
-                if (!geneLookupMap.has(normalizedOld)) {
-                  geneLookupMap.set(normalizedOld, geneVal);
-                }
-              }
-            }
-          });
-        });
-        geneArray = Array.from(geneSet).sort();
-        const datalist = document.getElementById('geneList');
-        datalist.innerHTML = "";
-        geneArray.forEach(gene => {
-          const option = document.createElement('option');
-          option.value = gene;
-          const oldTag = geneOldLocusMap.get(gene);
-          if (oldTag) {
-            option.label = `${gene} (${oldTag})`;
+        const orderedGenes = [];
+        geneIndexEntries.forEach(entry => {
+          if (!entry) { return; }
+          const geneVal = entry.gene ? String(entry.gene).trim() : '';
+          if (!geneVal) { return; }
+          orderedGenes.push(geneVal);
+          const normalizedGene = normalizeGeneKey(geneVal);
+          if (!geneLookupMap.has(normalizedGene)) {
+            geneLookupMap.set(normalizedGene, geneVal);
           }
-          datalist.appendChild(option);
+          const oldTag = entry.old_locus_tag ? String(entry.old_locus_tag).trim() : '';
+          if (oldTag) {
+            if (!geneOldLocusMap.has(geneVal)) {
+              geneOldLocusMap.set(geneVal, oldTag);
+            }
+            const normalizedOld = normalizeGeneKey(oldTag);
+            if (!geneLookupMap.has(normalizedOld)) {
+              geneLookupMap.set(normalizedOld, geneVal);
+            }
+          }
         });
+        geneArray = Array.from(new Set(orderedGenes)).sort();
+        const datalist = document.getElementById('geneList');
+        if (datalist) {
+          datalist.innerHTML = "";
+          geneArray.forEach(gene => {
+            const option = document.createElement('option');
+            option.value = gene;
+            const oldTag = geneOldLocusMap.get(gene);
+            if (oldTag) {
+              option.label = `${gene} (${oldTag})`;
+            }
+            datalist.appendChild(option);
+          });
+        }
         refreshPairsOldLocusMappings();
       }
       function updateTableList() {
@@ -1454,11 +1516,18 @@
           alert(`File "${filename}" removed.`);
         }
       }
-      function viewTable(filename) {
+      async function viewTable(filename) {
         const tableDisplayDiv = document.getElementById('tableDisplay');
         const fileObj = dataFiles.find(f => f.filename === filename);
         if (!fileObj) {
           tableDisplayDiv.innerHTML = "<p>File not found.</p>";
+          return;
+        }
+        tableDisplayDiv.innerHTML = "<p>Loading table...</p>";
+        try {
+          await ensureFileDataLoaded(fileObj);
+        } catch (error) {
+          tableDisplayDiv.innerHTML = `<p>Failed to load \"${filename}\".</p>`;
           return;
         }
         if (!fileObj.data || fileObj.data.length === 0) {
@@ -1540,9 +1609,9 @@
           alert('Failed to load expression tables. Please try again.');
           return;
         }
-        plotGene(geneName);
+        await plotGene(geneName);
       });
-      function plotGene(geneIdentifier) {
+      async function plotGene(geneIdentifier) {
         const resolvedGene = resolveGeneIdentifier(geneIdentifier);
         if (!resolvedGene) {
           alert("Gene or old locus tag not found in the loaded tables.");
@@ -1557,9 +1626,29 @@
           const checkbox = document.querySelector(`input.file-select-checkbox[data-filename="${fileObj.filename}"]`);
           return checkbox && checkbox.checked;
         });
+        if (selectedFiles.length === 0) {
+          alert('Please select at least one expression table.');
+          return;
+        }
+        try {
+          await Promise.all(selectedFiles.map(ensureFileDataLoaded));
+        } catch (error) {
+          alert('Failed to load the selected expression tables. Please try again.');
+          return;
+        }
         const seriesData = [];
         selectedFiles.forEach(fileObj => {
-          const record = fileObj.data.find(row => normalizeGeneKey(row[fileObj.geneColumn]) === normalizedGene);
+          if (!fileObj || !Array.isArray(fileObj.data) || fileObj.data.length === 0) {
+            return;
+          }
+          const geneColumn = fileObj.geneColumn || Object.keys(fileObj.data[0] || {})[0];
+          if (!geneColumn) {
+            return;
+          }
+          if (!fileObj.geneColumn) {
+            fileObj.geneColumn = geneColumn;
+          }
+          const record = fileObj.data.find(row => normalizeGeneKey(row[geneColumn]) === normalizedGene);
           if (record) {
             if (!resolvedOldLocusTag) {
               const rowOldTag = extractOldLocusTag(record, fileObj);
@@ -1669,7 +1758,7 @@
           currentIndex++;
         }
         document.getElementById('geneInput').value = geneArray[currentIndex];
-        plotGene(geneArray[currentIndex]);
+        await plotGene(geneArray[currentIndex]);
       });
       document.getElementById('prevGene').addEventListener('click', async function () {
         try {
@@ -1690,7 +1779,7 @@
           currentIndex--;
         }
         document.getElementById('geneInput').value = geneArray[currentIndex];
-        plotGene(geneArray[currentIndex]);
+        await plotGene(geneArray[currentIndex]);
       });
       /* -------------------- End of Viewer and Pairs Code -------------------- */
 
