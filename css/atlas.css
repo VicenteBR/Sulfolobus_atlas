@@ -821,8 +821,9 @@ h1 {
 
 /* Resources styling */
 #resourcesTab {
-  max-width: 64%;
-  margin: auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   background-color: #1e1e1e;
   padding: 10px 20px 20px 20px;
   border-radius: 8px;
