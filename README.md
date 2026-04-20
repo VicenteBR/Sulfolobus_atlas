@@ -4,4 +4,4 @@ If you use the atlas, the code, or the underlying datasets, please cite:
 
 Brück M, Daume M, Randau L, Gomes-Filho JV.2026.A web-based atlas for exploring post-transcriptional regulation in the archaeon Sulfolobus acidocaldarius. mSystems11:e01485-25.https://doi.org/10.1128/msystems.01485-25
 
-Sulfolobus_atlas repository, release v1.0.0. Zenodo DOI: 10.5281/zenodo.16312244.
+Sulfolobus_atlas repository, release v1.0.1. Zenodo DOI: 10.5281/zenodo.16312244.
